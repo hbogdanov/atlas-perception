@@ -1,0 +1,51 @@
+input:
+  mode: ros2
+  source: /gazebo/camera/image_raw
+  width: 1280
+  height: 720
+  fps: 30
+
+camera:
+  fx: 700.0
+  fy: 700.0
+  cx: 640.0
+  cy: 360.0
+
+depth:
+  model: midas
+  device: cpu
+  input_size: 518
+  normalize: true
+  weights_dir: models
+  midas_variant: MiDaS_small
+  depth_anything_encoder: vitl
+  prefer_torch_hub: true
+  min_depth: 0.1
+  max_depth: 25.0
+
+slam:
+  enabled: true
+  mode: visual_odometry
+  frame_stride: 1
+
+mapping:
+  enabled: true
+  representation: pointcloud
+  max_points: 200000
+  stride: 4
+  export_path: data/outputs/gazebo/frame_cloud.ply
+
+ros2:
+  enabled: true
+  image_topic: /gazebo/camera/image_raw
+  depth_topic: /atlas/depth
+  pose_topic: /atlas/pose
+  pointcloud_topic: /atlas/pointcloud
+  frame_id: gazebo_camera
+
+output:
+  save_depth_video: false
+  save_trajectory: true
+  save_pointcloud: true
+  output_dir: data/outputs/gazebo
+  visualize: true
