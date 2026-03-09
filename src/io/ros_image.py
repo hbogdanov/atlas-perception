@@ -1,8 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import sleep, time
 
 import numpy as np
+
+from src.io.types import FramePacket
+
+try:
+    import rclpy
+    from cv_bridge import CvBridge
+    from rclpy.node import Node
+    from sensor_msgs.msg import Image
+except ImportError:  # pragma: no cover
+    rclpy = None
+    CvBridge = None
+    Node = None
+    Image = None
 
 
 @dataclass
@@ -13,11 +27,55 @@ class RosImageMessage:
 
 
 class RosImageSubscriber:
-    """Thin placeholder for a ROS2 image subscription interface."""
+    """ROS2 image subscription wrapper that converts incoming images to OpenCV frames."""
 
-    def __init__(self, topic: str) -> None:
+    def __init__(self, topic: str, timeout_sec: float = 5.0) -> None:
+        if rclpy is None or CvBridge is None or Node is None or Image is None:
+            raise RuntimeError("ROS2 image ingestion requires rclpy, sensor_msgs, and cv_bridge.")
+        self._owns_runtime = False
+        if not rclpy.ok():
+            rclpy.init(args=None)
+            self._owns_runtime = True
         self.topic = topic
+        self.timeout_sec = timeout_sec
+        self._bridge = CvBridge()
+        self._node = Node("atlas_perception_image_source")
+        self._latest: RosImageMessage | None = None
+        self._sequence = 0
+        self._last_yielded_sequence = -1
+        self._subscription = self._node.create_subscription(Image, topic, self._callback, 10)
 
     def latest(self) -> RosImageMessage | None:
-        return None
+        return self._latest
 
+    def wait_for_frame(self) -> FramePacket:
+        start = time()
+        while time() - start <= self.timeout_sec:
+            rclpy.spin_once(self._node, timeout_sec=0.1)
+            message = self.latest()
+            if message is not None:
+                return FramePacket(image=message.image, timestamp=message.timestamp)
+            sleep(0.01)
+        raise TimeoutError(f"Timed out waiting for ROS2 image on topic {self.topic}")
+
+    def frames(self):
+        while True:
+            rclpy.spin_once(self._node, timeout_sec=0.1)
+            if self._latest is None or self._sequence == self._last_yielded_sequence:
+                continue
+            self._last_yielded_sequence = self._sequence
+            yield FramePacket(image=self._latest.image, timestamp=self._latest.timestamp)
+
+    def close(self) -> None:
+        if self._node is not None:
+            self._node.destroy_node()
+        if self._owns_runtime and rclpy is not None and rclpy.ok():
+            rclpy.shutdown()
+
+    def _callback(self, message: Image) -> None:
+        image = self._bridge.imgmsg_to_cv2(message, desired_encoding="bgr8")
+        timestamp = float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
+        if timestamp == 0.0:
+            timestamp = time()
+        self._latest = RosImageMessage(topic=self.topic, image=image, timestamp=timestamp)
+        self._sequence += 1

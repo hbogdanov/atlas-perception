@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from src.sim.common import SimulatorBridge
 
-class IsaacBridge:
-    def __init__(self, image_topic: str) -> None:
-        self.image_topic = image_topic
+
+class IsaacBridge(SimulatorBridge):
+    platform = "isaac"
 

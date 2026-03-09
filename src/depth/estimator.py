@@ -21,16 +21,12 @@ class DepthEstimator:
         self.config = config
         self.model_name = config["model"]
         self.device = torch.device(config.get("device", "cpu"))
+        self.output_mode = str(config.get("output_mode", "relative_normalized")).lower()
         self.backend = self._load_backend()
 
     def predict(self, image: np.ndarray) -> np.ndarray:
         depth = self.backend.predict(image)
-        if self.config.get("normalize", True):
-            depth = cv2.normalize(depth, None, 0.0, 1.0, cv2.NORM_MINMAX)
-        min_depth = float(self.config.get("min_depth", 0.1))
-        max_depth = float(self.config.get("max_depth", 20.0))
-        depth = np.clip(depth, min_depth, max_depth)
-        return depth
+        return self._format_output(depth)
 
     def _load_backend(self):
         model_name = self.model_name.lower()
@@ -39,6 +35,16 @@ class DepthEstimator:
         if model_name == "depth_anything":
             return DepthAnythingBackend(self.config, self.device)
         raise ValueError(f"Unsupported depth backend: {self.model_name}")
+
+    def _format_output(self, depth: np.ndarray) -> np.ndarray:
+        if self.output_mode == "relative_normalized":
+            return cv2.normalize(depth, None, 0.0, 1.0, cv2.NORM_MINMAX)
+        if self.output_mode == "raw":
+            return depth.astype(np.float32)
+        raise ValueError(
+            f"Unsupported depth output_mode: {self.output_mode}. "
+            "Expected one of: relative_normalized, raw."
+        )
 
 
 class _TorchHubDepthBackend:

@@ -1,0 +1,31 @@
+import pytest
+
+from src.slam.wrapper import SlamWrapper
+
+
+def test_disabled_mode_returns_identity_pose():
+    slam = SlamWrapper({"mode": "disabled"})
+    pose_a = slam.update(None, None, 1.0)
+    pose_b = slam.update(None, None, 2.0)
+    assert pose_a.matrix[0, 3] == 0.0
+    assert pose_b.matrix[0, 3] == 0.0
+
+
+def test_dummy_mode_generates_synthetic_motion():
+    slam = SlamWrapper({"mode": "dummy"})
+    pose_a = slam.update(None, None, 1.0)
+    pose_b = slam.update(None, None, 2.0)
+    assert pose_a.matrix[0, 3] == 0.0
+    assert pose_b.matrix[0, 3] == pytest.approx(0.05)
+
+
+def test_unknown_backend_mode_fails_explicitly():
+    slam = SlamWrapper({"mode": "visual_odometry"})
+    with pytest.raises(ValueError):
+        slam.update(None, None, 1.0)
+
+
+def test_orbslam_wrapper_mode_is_explicitly_unimplemented():
+    slam = SlamWrapper({"mode": "orbslam_wrapper"})
+    with pytest.raises(NotImplementedError):
+        slam.update(None, None, 1.0)

@@ -22,7 +22,22 @@ def test_pointcloud_builder_exports_ply(tmp_path: Path):
     depth = np.ones((2, 2), dtype=np.float32)
     rgb = np.zeros((2, 2, 3), dtype=np.uint8)
     pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
-    builder.integrate(depth, rgb, pose)
+    point_cloud = builder.integrate(depth, rgb, pose)
+    assert point_cloud.points.shape == (4, 3)
+    assert point_cloud.colors.shape == (4, 3)
     path = tmp_path / "frame_cloud.ply"
-    builder.export(path)
+    builder.export_ply(path)
     assert path.exists()
+
+
+def test_pointcloud_builder_integrates_without_open3d():
+    builder = PointCloudBuilder(
+        {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+        {"stride": 1, "max_points": 100},
+    )
+    depth = np.ones((2, 2), dtype=np.float32)
+    rgb = np.zeros((2, 2, 3), dtype=np.uint8)
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    point_cloud = builder.integrate(depth, rgb, pose)
+    assert point_cloud.points.shape == (4, 3)
+    assert builder.points.shape == (4, 3)

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from src.ros2.publishers import TopicPublisher
+from src.ros2.transforms import rotation_matrix_to_quaternion
 
 try:
     import open3d as o3d
@@ -36,12 +37,13 @@ class AtlasRosBridge:
     published: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        self.enabled = bool(self.config.get("enabled", False))
         self._bridge = CvBridge() if CvBridge is not None else None
         self._node = None
         self.depth_publisher = TopicPublisher(self.config["depth_topic"])
         self.pose_publisher = TopicPublisher(self.config["pose_topic"])
         self.pointcloud_publisher = TopicPublisher(self.config["pointcloud_topic"])
-        if rclpy is not None:
+        if self.enabled and rclpy is not None:
             if not rclpy.ok():
                 rclpy.init(args=None)
             self._node = Node("atlas_perception")
@@ -60,31 +62,44 @@ class AtlasRosBridge:
         self.published["depth"] = depth_map
 
     def publish_pose(self, pose, timestamp: float) -> None:
+        rotation = pose.matrix[:3, :3]
+        quaternion = rotation_matrix_to_quaternion(rotation)
         if self._node is not None and PoseStamped is not None:
             message = PoseStamped()
             message.header.frame_id = self.config["frame_id"]
             message.pose.position.x = float(pose.matrix[0, 3])
             message.pose.position.y = float(pose.matrix[1, 3])
             message.pose.position.z = float(pose.matrix[2, 3])
-            message.pose.orientation.w = 1.0
+            message.pose.orientation.x = float(quaternion[0])
+            message.pose.orientation.y = float(quaternion[1])
+            message.pose.orientation.z = float(quaternion[2])
+            message.pose.orientation.w = float(quaternion[3])
             self.pose_publisher.publish(message)
         else:
-            self.pose_publisher.publish({"timestamp": timestamp, "pose": pose.matrix})
+            self.pose_publisher.publish(
+                {
+                    "timestamp": timestamp,
+                    "pose": pose.matrix,
+                    "orientation_source": "derived_from_pose_matrix",
+                    "quaternion_xyzw": quaternion,
+                }
+            )
         self.published["pose"] = pose.matrix
 
     def publish_pointcloud(self, point_cloud, timestamp: float) -> None:
-        points = np.asarray(point_cloud.points, dtype=np.float32)
         if self._node is not None and PointCloud2 is not None and point_cloud2 is not None and Header is not None:
             header = Header()
             header.stamp = self._node.get_clock().now().to_msg()
             header.frame_id = self.config["frame_id"]
-            cloud_msg = point_cloud2.create_cloud_xyz32(header, points.tolist())
+            cloud_msg = point_cloud2.create_cloud_xyz32(header, point_cloud.points.astype(np.float32).tolist())
             self.pointcloud_publisher.publish(cloud_msg)
         else:
-            self.pointcloud_publisher.publish({"timestamp": timestamp, "points": points})
-        self.published["pointcloud"] = points
+            self.pointcloud_publisher.publish({"timestamp": timestamp, "points": point_cloud.points, "colors": point_cloud.colors})
+        self.published["pointcloud"] = point_cloud.points
 
     def shutdown(self) -> None:
+        if not self.enabled:
+            return
         if self._node is not None:
             self._node.destroy_node()
         if rclpy is not None and rclpy.ok():

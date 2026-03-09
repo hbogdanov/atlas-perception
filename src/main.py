@@ -8,6 +8,7 @@ from src.depth.visualize import colorize_depth
 from src.io.camera import create_frame_source
 from src.mapping.pointcloud import PointCloudBuilder
 from src.ros2.nodes import AtlasRosBridge
+from src.sim.factory import create_sim_bridge
 from src.slam.wrapper import SlamWrapper
 from src.utils.config import load_config
 from src.utils.logger import get_logger
@@ -18,7 +19,12 @@ LOGGER = get_logger(__name__)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Atlas Perception pipeline.")
-    parser.add_argument("--config", default="configs/default.yaml", help="Path to a YAML config.")
+    parser.add_argument("--config", default="configs/default.yaml", help="Path to the base YAML config.")
+    parser.add_argument(
+        "--override-config",
+        default=None,
+        help="Optional YAML config whose values recursively override the base config.",
+    )
     parser.add_argument("--max-frames", type=int, default=10, help="Frames to process before exit.")
     return parser.parse_args()
 
@@ -31,7 +37,10 @@ def ensure_output_dir(path_str: str) -> Path:
 
 def run() -> None:
     args = parse_args()
-    config = load_config(args.config)
+    config = load_config(args.config, args.override_config)
+    sim_bridge = create_sim_bridge(config.get("sim"))
+    if sim_bridge is not None:
+        config = sim_bridge.apply(config)
     output_dir = ensure_output_dir(config["output"]["output_dir"])
 
     source = create_frame_source(config["input"])
@@ -58,16 +67,16 @@ def run() -> None:
             _ = colorize_depth(depth_map)
 
         processed += 1
-        if processed >= args.max_frames:
+        if args.max_frames > 0 and processed >= args.max_frames:
             break
 
     if config["output"].get("save_pointcloud", False):
-        mapper.export(output_dir / "frame_cloud.ply")
+        mapper.export_ply(output_dir / "frame_cloud.ply")
     if config["output"].get("save_trajectory", False):
         slam.export_trajectory(output_dir / "trajectory.npy")
 
-    ros_bridge.shutdown()
     source.close()
+    ros_bridge.shutdown()
     LOGGER.info("Processed %s frames", processed)
 
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from src.sim.common import SimulatorBridge
 
-class GazeboBridge:
-    def __init__(self, image_topic: str) -> None:
-        self.image_topic = image_topic
+
+class GazeboBridge(SimulatorBridge):
+    platform = "gazebo"
 

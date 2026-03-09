@@ -6,6 +6,7 @@ from typing import Generator, Iterable
 import cv2
 import numpy as np
 
+from src.io.ros_image import RosImageSubscriber
 from src.io.types import FramePacket
 from src.io.video import VideoFrameSource
 
@@ -50,7 +51,8 @@ def create_frame_source(config: dict):
     if mode == "video":
         return VideoFrameSource(str(config["source"]))
     if mode == "ros2":
-        # Placeholder until a live ROS2 subscriber is connected.
-        blank = np.zeros((config["height"], config["width"], 3), dtype=np.uint8)
-        return StaticFrameSource([blank])
+        return RosImageSubscriber(
+            topic=str(config["source"]),
+            timeout_sec=float(config.get("timeout_sec", 5.0)),
+        )
     raise ValueError(f"Unsupported input mode: {mode}")

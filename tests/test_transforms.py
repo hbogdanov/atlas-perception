@@ -1,4 +1,7 @@
+import numpy as np
+
 from src.ros2.transforms import make_transform
+from src.ros2.transforms import rotation_matrix_to_quaternion
 
 
 def test_make_transform_writes_translation():
@@ -6,4 +9,26 @@ def test_make_transform_writes_translation():
     assert matrix[0, 3] == 1.0
     assert matrix[1, 3] == 2.0
     assert matrix[2, 3] == 3.0
+
+
+def test_rotation_matrix_to_quaternion_identity():
+    quat = rotation_matrix_to_quaternion(np.eye(3, dtype=np.float32))
+    assert quat[0] == 0.0
+    assert quat[1] == 0.0
+    assert quat[2] == 0.0
+    assert quat[3] == 1.0
+
+
+def test_rotation_matrix_to_quaternion_z_rotation():
+    rotation = np.array(
+        [
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+    quat = rotation_matrix_to_quaternion(rotation)
+    assert quat[2] == np.float32(np.sqrt(0.5))
+    assert quat[3] == np.float32(np.sqrt(0.5))
 
