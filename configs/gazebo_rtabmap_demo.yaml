@@ -1,16 +1,25 @@
 input:
-  mode: webcam
-  source: 0
-  width: 640
-  height: 480
+  mode: ros2
+  source: /gazebo/camera/image_raw
+  width: 1280
+  height: 720
   fps: 30
   timeout_sec: 5.0
 
+sim:
+  platform: gazebo
+  namespace: /gazebo
+  camera_topic: /gazebo/camera/image_raw
+  camera_info_topic: /gazebo/camera/camera_info
+  clock_topic: /clock
+  launch_package: gazebo_ros
+  launch_file: gazebo.launch.py
+
 camera:
-  fx: 525.0
-  fy: 525.0
-  cx: 319.5
-  cy: 239.5
+  fx: 700.0
+  fy: 700.0
+  cx: 640.0
+  cy: 360.0
 
 depth:
   model: midas
@@ -23,7 +32,7 @@ depth:
   prefer_torch_hub: true
 
 slam:
-  mode: dummy
+  mode: rtabmap
   frame_stride: 1
   pose_topic: /rtabmap/localization_pose
   timeout_sec: 0.05
@@ -31,23 +40,23 @@ slam:
 mapping:
   enabled: true
   representation: pointcloud
-  max_points: 100000
+  max_points: 200000
   stride: 4
-  export_path: data/outputs/frame_cloud.ply
+  export_path: data/outputs/gazebo/frame_cloud.ply
 
 ros2:
-  enabled: false
+  enabled: true
   depth_topic: /atlas/depth
   pose_topic: /atlas/pose
   path_topic: /atlas/path
   pointcloud_topic: /atlas/pointcloud
-  frame_id: atlas_camera
+  frame_id: gazebo_camera
 
 output:
-  save_rgb_snapshot: false
-  save_depth_snapshot: false
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
   save_depth_video: false
   save_trajectory: true
   save_pointcloud: true
-  output_dir: data/outputs
-  visualize: false
+  output_dir: data/outputs/gazebo_rtabmap
+  visualize: true

@@ -19,6 +19,7 @@ def test_bridge_respects_disabled_flag_without_ros_runtime():
             "enabled": False,
             "depth_topic": "/atlas/depth",
             "pose_topic": "/atlas/pose",
+            "path_topic": "/atlas/path",
             "pointcloud_topic": "/atlas/pointcloud",
             "frame_id": "atlas_camera",
         }
@@ -27,10 +28,12 @@ def test_bridge_respects_disabled_flag_without_ros_runtime():
     bridge.publish_depth(np.ones((2, 2), dtype=np.float32), 1.0)
     bridge.publish_pose(DummyPose(), 1.0)
     bridge.publish_pointcloud(DummyPointCloud(), 1.0)
+    bridge.publish_trajectory(type("Trajectory", (), {"poses": [DummyPose()]})(), 1.0)
 
     assert bridge.enabled is False
     assert bridge._node is None
     assert bridge.depth_publisher.last_message is not None
     assert bridge.pose_publisher.last_message is not None
+    assert bridge.path_publisher.last_message is not None
     assert bridge.pointcloud_publisher.last_message is not None
     assert bridge.depth_publisher.last_message["header"]["frame_id"] == "atlas_camera"

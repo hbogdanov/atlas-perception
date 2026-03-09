@@ -4,7 +4,7 @@ from src.sim.factory import create_sim_bridge
 def test_gazebo_bridge_applies_camera_topic_to_runtime_config():
     config = {
         "input": {"mode": "webcam", "source": 0},
-        "ros2": {"enabled": False, "image_topic": "/camera/image_raw"},
+        "ros2": {"enabled": False},
         "sim": {
             "platform": "gazebo",
             "namespace": "/gazebo",
@@ -20,7 +20,6 @@ def test_gazebo_bridge_applies_camera_topic_to_runtime_config():
     assert merged["input"]["mode"] == "ros2"
     assert merged["input"]["source"] == "/gazebo/camera/image_raw"
     assert merged["ros2"]["enabled"] is True
-    assert merged["ros2"]["image_topic"] == "/gazebo/camera/image_raw"
 
 
 def test_isaac_bridge_exposes_launch_arguments():

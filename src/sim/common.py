@@ -36,7 +36,6 @@ class SimulatorBridge:
         merged["input"]["mode"] = "ros2"
         merged["input"]["source"] = self.spec.camera_topic
         merged["ros2"]["enabled"] = True
-        merged["ros2"]["image_topic"] = self.spec.camera_topic
         return merged
 
     def topic_remaps(self) -> dict[str, str]:
@@ -54,4 +53,3 @@ class SimulatorBridge:
             "camera_info_topic": self.spec.camera_info_topic,
             "clock_topic": self.spec.clock_topic,
         }
-

@@ -20,6 +20,34 @@ Example run command:
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml --max-frames 100
 ```
 
+Example RTAB-Map-assisted run:
+
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/gazebo_rtabmap_demo.yaml --max-frames 100
+```
+
+If `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud` are enabled, the main pipeline will save:
+
+- `rgb_frame.png`
+- `depth_map.png`
+- `frame_cloud.ply`
+
+Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
+
+- `data/outputs/tum_main_eval/rgb_frame.png`
+- `data/outputs/tum_main_eval/depth_map.png`
+- `data/outputs/tum_main_eval/frame_cloud.ply`
+- `data/outputs/tum_main_eval/trajectory.npy`
+- `data/outputs/tum_main_eval/trajectory.json`
+- `data/outputs/tum_main_eval/trajectory.csv`
+
+Observed runtime summary from that run:
+
+- `avg_depth_ms=80.79`
+- `avg_mapping_ms=3.18`
+- `avg_fps=11.45`
+- `points=100000`
+
 If using Torch Hub backends for the first time, allow time for model download or provide `depth.local_weights_path` in config.
 
 ## Recommended Dataset

@@ -20,12 +20,11 @@ def test_dummy_mode_generates_synthetic_motion():
 
 
 def test_unknown_backend_mode_fails_explicitly():
-    slam = SlamWrapper({"mode": "visual_odometry"})
     with pytest.raises(ValueError):
-        slam.update(None, None, 1.0)
+        SlamWrapper({"mode": "visual_odometry"})
 
 
-def test_orbslam_wrapper_mode_is_explicitly_unimplemented():
-    slam = SlamWrapper({"mode": "orbslam_wrapper"})
-    with pytest.raises(NotImplementedError):
+def test_rtabmap_mode_without_ros_runtime_fails_cleanly():
+    slam = SlamWrapper({"mode": "rtabmap"})
+    with pytest.raises(RuntimeError):
         slam.update(None, None, 1.0)

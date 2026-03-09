@@ -16,6 +16,7 @@ try:
     import rclpy
     from cv_bridge import CvBridge
     from geometry_msgs.msg import PoseStamped
+    from nav_msgs.msg import Path as RosPath
     from rclpy.node import Node
     from sensor_msgs.msg import Image, PointCloud2, PointField
     from sensor_msgs_py import point_cloud2
@@ -25,6 +26,7 @@ except ImportError:  # pragma: no cover
     rclpy = None
     CvBridge = None
     PoseStamped = None
+    RosPath = None
     Node = None
     Image = None
     PointCloud2 = None
@@ -45,6 +47,7 @@ class AtlasRosBridge:
         self._node = None
         self.depth_publisher = TopicPublisher(self.config["depth_topic"])
         self.pose_publisher = TopicPublisher(self.config["pose_topic"])
+        self.path_publisher = TopicPublisher(self.config["path_topic"])
         self.pointcloud_publisher = TopicPublisher(self.config["pointcloud_topic"])
         if self.enabled and rclpy is not None:
             if not rclpy.ok():
@@ -52,6 +55,7 @@ class AtlasRosBridge:
             self._node = Node("atlas_perception")
             self.depth_publisher.attach_ros(self._node, Image)
             self.pose_publisher.attach_ros(self._node, PoseStamped)
+            self.path_publisher.attach_ros(self._node, RosPath)
             self.pointcloud_publisher.attach_ros(self._node, PointCloud2)
 
     def publish_depth(self, depth_map: np.ndarray, timestamp: float) -> None:
@@ -90,6 +94,33 @@ class AtlasRosBridge:
                 }
             )
         self.published["pose"] = {"header": header, "pose": pose.matrix, "quaternion_xyzw": quaternion}
+
+    def publish_trajectory(self, trajectory, timestamp: float) -> None:
+        header = self._header_from_timestamp(timestamp)
+        if self._node is not None and RosPath is not None and PoseStamped is not None:
+            message = RosPath()
+            message.header = header
+            for pose in trajectory.poses:
+                pose_msg = PoseStamped()
+                pose_msg.header = self._header_from_timestamp(pose.timestamp)
+                pose_msg.pose.position.x = float(pose.matrix[0, 3])
+                pose_msg.pose.position.y = float(pose.matrix[1, 3])
+                pose_msg.pose.position.z = float(pose.matrix[2, 3])
+                quat = rotation_matrix_to_quaternion(pose.matrix[:3, :3])
+                pose_msg.pose.orientation.x = float(quat[0])
+                pose_msg.pose.orientation.y = float(quat[1])
+                pose_msg.pose.orientation.z = float(quat[2])
+                pose_msg.pose.orientation.w = float(quat[3])
+                message.poses.append(pose_msg)
+            self.path_publisher.publish(message)
+        else:
+            self.path_publisher.publish(
+                {
+                    "header": header,
+                    "poses": [pose.matrix for pose in trajectory.poses],
+                }
+            )
+        self.published["path"] = {"header": header, "num_poses": len(trajectory.poses)}
 
     def publish_pointcloud(self, point_cloud, timestamp: float) -> None:
         header = self._header_from_timestamp(timestamp)

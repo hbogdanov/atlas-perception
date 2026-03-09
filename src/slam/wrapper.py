@@ -1,11 +1,113 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import numpy as np
 
 from src.slam.odometry import PoseEstimate, identity_pose
 from src.slam.trajectory import Trajectory
+
+try:
+    import rclpy
+    from geometry_msgs.msg import PoseStamped
+    from rclpy.node import Node
+except ImportError:  # pragma: no cover
+    rclpy = None
+    PoseStamped = None
+    Node = None
+
+
+class SlamBackend(ABC):
+    def __init__(self, config: dict) -> None:
+        self.config = config
+
+    def initialize(self) -> None:
+        return None
+
+    @abstractmethod
+    def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
+        raise NotImplementedError
+
+    def get_pose(self) -> PoseEstimate | None:
+        return None
+
+    def get_trajectory(self) -> list[PoseEstimate]:
+        return []
+
+    def shutdown(self) -> None:
+        return None
+
+
+class DisabledBackend(SlamBackend):
+    def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
+        del rgb, depth
+        return identity_pose(float(timestamp or 0.0))
+
+
+class DummyBackend(SlamBackend):
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        self._step = 0
+        self._latest: PoseEstimate | None = None
+
+    def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
+        del rgb, depth
+        pose = identity_pose(float(timestamp or 0.0))
+        pose.T_world_camera[0, 3] = float(self._step) * 0.05
+        self._step += 1
+        self._latest = pose
+        return pose
+
+    def get_pose(self) -> PoseEstimate | None:
+        return self._latest
+
+
+class RtabmapBackend(SlamBackend):
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        self.pose_topic = str(config.get("pose_topic", "/rtabmap/localization_pose"))
+        self.timeout_sec = float(config.get("timeout_sec", 0.0))
+        self._latest: PoseEstimate | None = None
+        self._owns_runtime = False
+        self._node = None
+
+    def initialize(self) -> None:
+        if rclpy is None or Node is None or PoseStamped is None:
+            raise RuntimeError("rtabmap mode requires ROS2 Python packages and geometry_msgs.")
+        if not rclpy.ok():
+            rclpy.init(args=None)
+            self._owns_runtime = True
+        self._node = Node("atlas_perception_slam")
+        self._node.create_subscription(PoseStamped, self.pose_topic, self._pose_callback, 10)
+
+    def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
+        del rgb, depth
+        if self._node is None:
+            self.initialize()
+        rclpy.spin_once(self._node, timeout_sec=self.timeout_sec)
+        if self._latest is None:
+            pose = identity_pose(float(timestamp or 0.0))
+            pose.tracking_ok = False
+            return pose
+        return self._latest
+
+    def get_pose(self) -> PoseEstimate | None:
+        return self._latest
+
+    def shutdown(self) -> None:
+        if self._node is not None:
+            self._node.destroy_node()
+        if self._owns_runtime and rclpy is not None and rclpy.ok():
+            rclpy.shutdown()
+
+    def _pose_callback(self, message: PoseStamped) -> None:
+        transform = np.eye(4, dtype=np.float32)
+        transform[0, 3] = float(message.pose.position.x)
+        transform[1, 3] = float(message.pose.position.y)
+        transform[2, 3] = float(message.pose.position.z)
+        timestamp = float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
+        self._latest = PoseEstimate(T_world_camera=transform, timestamp=timestamp, tracking_ok=True)
 
 
 class SlamWrapper:
@@ -15,33 +117,26 @@ class SlamWrapper:
         self.config = config
         self.mode = str(config.get("mode", "disabled")).lower()
         self.trajectory = Trajectory()
-        self._step = 0
+        self.backend = self._build_backend()
 
     def update(self, image: np.ndarray, depth_map: np.ndarray, timestamp: float) -> PoseEstimate:
-        if self.mode == "disabled":
-            pose = self._disabled_pose(timestamp)
-        elif self.mode == "dummy":
-            pose = self._dummy_pose(timestamp)
-        else:
-            pose = self._backend_pose(image, depth_map, timestamp)
+        pose = self.backend.update(image, depth_map, timestamp)
         self.trajectory.append(pose)
         return pose
 
     def export_trajectory(self, path: Path) -> None:
         self.trajectory.export(path)
+        self.trajectory.export_json(path.with_suffix(".json"))
+        self.trajectory.export_csv(path.with_suffix(".csv"))
 
-    @staticmethod
-    def _disabled_pose(timestamp: float) -> PoseEstimate:
-        return identity_pose(timestamp)
+    def shutdown(self) -> None:
+        self.backend.shutdown()
 
-    def _dummy_pose(self, timestamp: float) -> PoseEstimate:
-        pose = identity_pose(timestamp)
-        pose.matrix[0, 3] = float(self._step) * 0.05
-        self._step += 1
-        return pose
-
-    def _backend_pose(self, image: np.ndarray, depth_map: np.ndarray, timestamp: float) -> PoseEstimate:
-        del image, depth_map
-        if self.mode == "orbslam_wrapper":
-            raise NotImplementedError("ORB-SLAM backend integration is not implemented yet.")
+    def _build_backend(self) -> SlamBackend:
+        if self.mode == "disabled":
+            return DisabledBackend(self.config)
+        if self.mode == "dummy":
+            return DummyBackend(self.config)
+        if self.mode == "rtabmap":
+            return RtabmapBackend(self.config)
         raise ValueError(f"Unsupported SLAM mode: {self.mode}")

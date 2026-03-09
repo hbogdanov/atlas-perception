@@ -1,6 +1,6 @@
 # Architecture
 
-Atlas Perception is organized as a modular perception pipeline with explicit boundaries between sensor input, scene understanding, motion estimation, spatial mapping, and ROS2 integration.
+Atlas Perception is organized as a modular perception pipeline with explicit boundaries between sensor input, scene understanding, trajectory hooks, spatial mapping, and ROS2 integration.
 
 ## Pipeline
 
@@ -10,11 +10,10 @@ Camera input
       v
 Depth Estimation
       |
-      v
-Point Cloud Projection
+      +--> (Optional) Trajectory / Future SLAM Backend
       |
       v
-(Optional) Pose / Visual Odometry
+Point Cloud Projection + Transform
       |
       v
 Map / Cloud Fusion
@@ -27,10 +26,10 @@ ROS2 Topic Publishing
 
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
 2. `src/depth` loads a pretrained depth backend and converts RGB frames into dense depth estimates.
-3. `src/mapping` back-projects depth into point clouds using camera intrinsics.
-4. `src/slam` consumes image observations and emits trajectory updates, with backend SLAM integration points reserved for future implementations.
-5. `src/mapping` can fuse successive clouds into larger spatial artifacts.
-6. `src/ros2` publishes depth, pose, and point cloud outputs to the rest of the robot stack.
+3. `src/slam` consumes observations and emits `T_world_camera` from `disabled`, `dummy`, or `rtabmap` backends.
+4. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
+5. `src/mapping` transforms those points into the world frame and fuses successive clouds into a larger map.
+6. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
 7. `src/sim` normalizes simulator camera topics and launch settings for Isaac Sim and Gazebo runs.
 
 ## Core Modules
@@ -39,9 +38,9 @@ ROS2 Topic Publishing
 - `src/io/camera.py`: unified frame source abstraction for webcam, file, and ROS2 streams
 - `src/io/ros_image.py`: ROS2 image topic subscriber backed by `rclpy` and `cv_bridge`
 - `src/depth/estimator.py`: backend-facing depth inference interface for MiDaS and Depth Anything
-- `src/slam/wrapper.py`: explicit pose modes for disabled, dummy, and backend SLAM integrations
-- `src/mapping/pointcloud.py`: depth back-projection, point cloud storage, and export adapters
-- `src/ros2/nodes.py`: ROS2 bridge used to publish outputs and subscribe to images
+- `src/slam/wrapper.py`: backend contract plus `disabled`, `dummy`, and `rtabmap` trajectory integrations
+- `src/mapping/pointcloud.py`: camera-frame back-projection, world-frame accumulation, and export adapters
+- `src/ros2/nodes.py`: ROS2 bridge used to publish depth, pose, path, and colored point clouds
 - `src/sim/common.py`: simulator bridge contract for runtime topic adaptation and launch arguments
 
 ## Design Goals

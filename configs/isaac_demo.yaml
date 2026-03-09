@@ -34,6 +34,8 @@ depth:
 slam:
   mode: dummy
   frame_stride: 1
+  pose_topic: /rtabmap/localization_pose
+  timeout_sec: 0.05
 
 mapping:
   enabled: true
@@ -44,13 +46,15 @@ mapping:
 
 ros2:
   enabled: true
-  image_topic: /isaac/camera/color
   depth_topic: /atlas/depth
   pose_topic: /atlas/pose
+  path_topic: /atlas/path
   pointcloud_topic: /atlas/pointcloud
   frame_id: isaac_camera
 
 output:
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
   save_depth_video: false
   save_trajectory: true
   save_pointcloud: true

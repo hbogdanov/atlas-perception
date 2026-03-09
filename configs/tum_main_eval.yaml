@@ -1,0 +1,13 @@
+input:
+  mode: video
+  source: data/outputs/tum_demo/tum_rgb_demo.mp4
+
+ros2:
+  enabled: false
+
+output:
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
+  save_pointcloud: true
+  save_trajectory: true
+  output_dir: data/outputs/tum_main_eval

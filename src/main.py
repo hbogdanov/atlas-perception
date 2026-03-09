@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 from time import perf_counter
 
+import cv2
+
 from src.depth.estimator import DepthEstimator
 from src.depth.visualize import colorize_depth
 from src.io.camera import create_frame_source
@@ -37,6 +39,15 @@ def ensure_output_dir(path_str: str) -> Path:
     return output_dir
 
 
+def save_demo_snapshots(output_dir: Path, rgb, depth_map, config: dict, saved: set[str]) -> None:
+    if config["output"].get("save_rgb_snapshot", False) and "rgb" not in saved:
+        cv2.imwrite(str(output_dir / "rgb_frame.png"), rgb)
+        saved.add("rgb")
+    if config["output"].get("save_depth_snapshot", False) and "depth" not in saved:
+        cv2.imwrite(str(output_dir / "depth_map.png"), colorize_depth(depth_map))
+        saved.add("depth")
+
+
 def run() -> None:
     args = parse_args()
     try:
@@ -60,7 +71,11 @@ def run() -> None:
     LOGGER.info("Starting pipeline with input mode=%s", config["input"]["mode"])
 
     processed = 0
+    saved_snapshots: set[str] = set()
     start_time = perf_counter()
+    depth_times_ms: list[float] = []
+    mapping_times_ms: list[float] = []
+    latest_point_count = 0
     try:
         for frame in source.frames():
             timestamp = frame.timestamp
@@ -73,12 +88,18 @@ def run() -> None:
 
             ros_bridge.publish_depth(depth_map, timestamp)
             ros_bridge.publish_pose(pose, timestamp)
+            ros_bridge.publish_trajectory(slam.trajectory, timestamp)
             ros_bridge.publish_pointcloud(point_cloud, timestamp)
+
+            save_demo_snapshots(output_dir, rgb, depth_map, config, saved_snapshots)
 
             if config["output"].get("visualize", False):
                 _ = colorize_depth(depth_map)
 
             processed += 1
+            depth_times_ms.append(depth_timer.result.milliseconds)
+            mapping_times_ms.append(mapping_timer.result.milliseconds)
+            latest_point_count = point_cloud.points.shape[0]
             elapsed = max(perf_counter() - start_time, 1e-6)
             LOGGER.info(
                 "frame=%s depth_ms=%.2f mapping_ms=%.2f fps=%.2f points=%s",
@@ -102,7 +123,17 @@ def run() -> None:
         slam.export_trajectory(output_dir / "trajectory.npy")
 
     source.close()
+    slam.shutdown()
     ros_bridge.shutdown()
+    total_elapsed = max(perf_counter() - start_time, 1e-6)
+    if processed:
+        LOGGER.info(
+            "summary avg_depth_ms=%.2f avg_mapping_ms=%.2f avg_fps=%.2f points=%s",
+            sum(depth_times_ms) / len(depth_times_ms),
+            sum(mapping_times_ms) / len(mapping_times_ms),
+            processed / total_elapsed,
+            latest_point_count,
+        )
     LOGGER.info("Processed %s frames", processed)
 
 

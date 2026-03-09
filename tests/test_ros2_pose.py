@@ -14,6 +14,7 @@ def test_publish_pose_fallback_includes_quaternion():
             "enabled": False,
             "depth_topic": "/atlas/depth",
             "pose_topic": "/atlas/pose",
+            "path_topic": "/atlas/path",
             "pointcloud_topic": "/atlas/pointcloud",
             "frame_id": "atlas_camera",
         }

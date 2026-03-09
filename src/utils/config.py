@@ -8,7 +8,7 @@ import yaml
 REQUIRED_SECTIONS = ("input", "camera", "depth", "slam", "mapping", "ros2", "output")
 VALID_INPUT_MODES = {"webcam", "video", "ros2"}
 VALID_DEPTH_OUTPUT_MODES = {"relative_normalized", "raw"}
-VALID_SLAM_MODES = {"disabled", "dummy", "orbslam_wrapper"}
+VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap"}
 
 
 def _read_yaml(path: str | Path) -> dict:
@@ -38,11 +38,17 @@ def validate_config(config: dict) -> dict:
     input_mode = str(config["input"].get("mode", "")).lower()
     if input_mode not in VALID_INPUT_MODES:
         raise ValueError(f"input.mode must be one of {sorted(VALID_INPUT_MODES)}, got {input_mode!r}.")
+    if input_mode in {"video", "ros2"} and not config["input"].get("source"):
+        raise ValueError("input.source is required when input.mode is 'video' or 'ros2'.")
 
     fx = float(config["camera"].get("fx", 0.0))
     fy = float(config["camera"].get("fy", 0.0))
+    cx = float(config["camera"].get("cx", -1.0))
+    cy = float(config["camera"].get("cy", -1.0))
     if fx <= 0.0 or fy <= 0.0:
         raise ValueError("camera.fx and camera.fy must be positive.")
+    if cx < 0.0 or cy < 0.0:
+        raise ValueError("camera.cx and camera.cy must be non-negative.")
 
     output_mode = str(config["depth"].get("output_mode", "")).lower()
     if output_mode not in VALID_DEPTH_OUTPUT_MODES:
@@ -53,6 +59,13 @@ def validate_config(config: dict) -> dict:
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
         raise ValueError(f"slam.mode must be one of {sorted(VALID_SLAM_MODES)}, got {slam_mode!r}.")
+
+    stride = int(config["mapping"].get("stride", 0))
+    max_points = int(config["mapping"].get("max_points", 0))
+    if stride <= 0:
+        raise ValueError("mapping.stride must be greater than 0.")
+    if max_points <= 0:
+        raise ValueError("mapping.max_points must be greater than 0.")
 
     return config
 
