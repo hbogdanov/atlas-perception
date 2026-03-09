@@ -22,7 +22,13 @@ class DepthEstimator:
         self.model_name = config["model"]
         self.device = torch.device(config.get("device", "cpu"))
         self.output_mode = str(config.get("output_mode", "relative_normalized")).lower()
-        self.backend = self._load_backend()
+        try:
+            self.backend = self._load_backend()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to initialize depth backend '{self.model_name}'. "
+                "Check torch installation, first-run model downloads, and local weight paths."
+            ) from exc
 
     def predict(self, image: np.ndarray) -> np.ndarray:
         depth = self.backend.predict(image)
@@ -68,6 +74,7 @@ class _TorchHubDepthBackend:
         self.model.eval()
         transforms = torch.hub.load(self.repo, "transforms")
         self.transform = getattr(transforms, self.transform_arg)
+        self._load_local_weights_if_configured()
 
     def predict(self, image: np.ndarray) -> np.ndarray:
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -83,6 +90,14 @@ class _TorchHubDepthBackend:
                 align_corners=False,
             ).squeeze()
         return prediction.detach().cpu().numpy().astype(np.float32)
+
+    def _load_local_weights_if_configured(self) -> None:
+        weights_path = self.config.get("local_weights_path")
+        if not weights_path:
+            return
+        checkpoint = torch.load(weights_path, map_location=self.device)
+        state_dict = checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+        self.model.load_state_dict(state_dict, strict=False)
 
 
 class MidasBackend(_TorchHubDepthBackend):

@@ -31,5 +31,6 @@ def test_publish_pose_fallback_includes_quaternion():
     bridge.publish_pose(DummyPose(matrix), 1.0)
 
     message = bridge.pose_publisher.last_message
+    assert message["header"]["frame_id"] == "atlas_camera"
     assert message["orientation_source"] == "derived_from_pose_matrix"
     assert np.allclose(message["quaternion_xyzw"], np.array([0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)], dtype=np.float32))

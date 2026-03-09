@@ -41,3 +41,33 @@ def test_pointcloud_builder_integrates_without_open3d():
     point_cloud = builder.integrate(depth, rgb, pose)
     assert point_cloud.points.shape == (4, 3)
     assert builder.points.shape == (4, 3)
+
+
+def test_pointcloud_builder_ros_adapter_includes_color():
+    builder = PointCloudBuilder(
+        {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+        {"stride": 1, "max_points": 100},
+    )
+    depth = np.ones((1, 1), dtype=np.float32)
+    rgb = np.array([[[255, 0, 0]]], dtype=np.uint8)
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    builder.integrate(depth, rgb, pose)
+
+    class FakePointField:
+        FLOAT32 = 7
+        UINT32 = 6
+
+        def __init__(self, name, offset, datatype, count):
+            self.name = name
+            self.offset = offset
+            self.datatype = datatype
+            self.count = count
+
+    class FakePointCloud2Module:
+        @staticmethod
+        def create_cloud(header, fields, rows):
+            return {"header": header, "fields": fields, "rows": rows}
+
+    msg = builder.to_ros_pointcloud2({"frame_id": "atlas"}, FakePointCloud2Module, FakePointField)
+    assert [field.name for field in msg["fields"]] == ["x", "y", "z", "rgb"]
+    assert msg["rows"][0][3] == 0xFF0000

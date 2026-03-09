@@ -19,6 +19,20 @@ class PointCloudData:
     points: np.ndarray
     colors: np.ndarray
 
+    def to_ros_pointcloud2(self, header, point_cloud2_module, point_field_type):
+        fields = [
+            point_field_type(name="x", offset=0, datatype=point_field_type.FLOAT32, count=1),
+            point_field_type(name="y", offset=4, datatype=point_field_type.FLOAT32, count=1),
+            point_field_type(name="z", offset=8, datatype=point_field_type.FLOAT32, count=1),
+            point_field_type(name="rgb", offset=12, datatype=point_field_type.UINT32, count=1),
+        ]
+        rows = []
+        for point, color in zip(self.points.astype(np.float32), self.colors.astype(np.float32), strict=False):
+            rgb_uint8 = np.clip(color * 255.0, 0, 255).astype(np.uint8)
+            packed_rgb = int(rgb_uint8[0]) << 16 | int(rgb_uint8[1]) << 8 | int(rgb_uint8[2])
+            rows.append([float(point[0]), float(point[1]), float(point[2]), packed_rgb])
+        return point_cloud2_module.create_cloud(header, fields, rows)
+
 
 class PointCloudBuilder:
     def __init__(self, camera_config: dict, mapping_config: dict) -> None:
@@ -55,8 +69,8 @@ class PointCloudBuilder:
             cloud.colors = o3d.utility.Vector3dVector(self._colors.astype(np.float64))
         return cloud
 
-    def to_ros_pointcloud2(self, header, point_cloud2_module):
-        return point_cloud2_module.create_cloud_xyz32(header, self._points.astype(np.float32).tolist())
+    def to_ros_pointcloud2(self, header, point_cloud2_module, point_field_type):
+        return self.data().to_ros_pointcloud2(header, point_cloud2_module, point_field_type)
 
     def export_ply(self, path: Path) -> None:
         self._require_open3d()
@@ -66,4 +80,4 @@ class PointCloudBuilder:
     @staticmethod
     def _require_open3d() -> None:
         if o3d is None:
-            raise RuntimeError("Open3D is required for point cloud generation. Install dependencies from requirements.txt.")
+            raise RuntimeError("Open3D is required for point cloud export. Install dependencies from requirements.txt.")

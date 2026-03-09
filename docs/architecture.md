@@ -28,7 +28,7 @@ ROS2 Topic Publishing
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
 2. `src/depth` loads a pretrained depth backend and converts RGB frames into dense depth estimates.
 3. `src/mapping` back-projects depth into point clouds using camera intrinsics.
-4. `src/slam` consumes image observations and emits pose or trajectory updates.
+4. `src/slam` consumes image observations and emits trajectory updates, with backend SLAM integration points reserved for future implementations.
 5. `src/mapping` can fuse successive clouds into larger spatial artifacts.
 6. `src/ros2` publishes depth, pose, and point cloud outputs to the rest of the robot stack.
 7. `src/sim` normalizes simulator camera topics and launch settings for Isaac Sim and Gazebo runs.

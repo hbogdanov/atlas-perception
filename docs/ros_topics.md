@@ -6,9 +6,9 @@
 
 ## Publications
 
-- `/atlas/depth`: depth image payload, either normalized relative depth or raw backend output depending on `depth.output_mode`
-- `/atlas/pose`: current camera pose estimate with orientation derived from the 4x4 pose matrix; dummy SLAM modes currently emit identity rotation
-- `/atlas/pointcloud`: accumulated or frame-local point cloud projection
+- `/atlas/depth`: depth image payload with `header.stamp` and `header.frame_id`; content depends on `depth.output_mode`
+- `/atlas/pose`: current pose or trajectory estimate with orientation derived from the 4x4 pose matrix; dummy SLAM modes currently emit identity rotation
+- `/atlas/pointcloud`: accumulated or frame-local colored point cloud projection with `header.stamp` and `header.frame_id`
 
 ## Frames
 

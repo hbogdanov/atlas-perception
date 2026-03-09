@@ -6,16 +6,19 @@ from typing import Generator, Iterable
 import cv2
 import numpy as np
 
+from src.io.base import FrameSource
 from src.io.ros_image import RosImageSubscriber
 from src.io.types import FramePacket
 from src.io.video import VideoFrameSource
 
 
-class CameraFrameSource:
+class CameraFrameSource(FrameSource):
     def __init__(self, source: int, width: int, height: int) -> None:
         self._capture = cv2.VideoCapture(source)
         self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if not self._capture.isOpened():
+            raise RuntimeError(f"Unable to open webcam source {source}.")
 
     def frames(self) -> Generator[FramePacket, None, None]:
         while True:
@@ -28,7 +31,7 @@ class CameraFrameSource:
         self._capture.release()
 
 
-class StaticFrameSource:
+class StaticFrameSource(FrameSource):
     def __init__(self, frames: Iterable[np.ndarray]) -> None:
         self._frames = frames
 
@@ -40,7 +43,7 @@ class StaticFrameSource:
         return None
 
 
-def create_frame_source(config: dict):
+def create_frame_source(config: dict) -> FrameSource:
     mode = config["mode"]
     if mode == "webcam":
         return CameraFrameSource(

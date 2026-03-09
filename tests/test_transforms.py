@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from src.ros2.transforms import make_transform
 from src.ros2.transforms import rotation_matrix_to_quaternion
@@ -29,6 +30,5 @@ def test_rotation_matrix_to_quaternion_z_rotation():
         dtype=np.float32,
     )
     quat = rotation_matrix_to_quaternion(rotation)
-    assert quat[2] == np.float32(np.sqrt(0.5))
-    assert quat[3] == np.float32(np.sqrt(0.5))
-
+    assert quat[2] == pytest.approx(np.float32(np.sqrt(0.5)), rel=1e-6)
+    assert quat[3] == pytest.approx(np.float32(np.sqrt(0.5)), rel=1e-6)

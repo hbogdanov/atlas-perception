@@ -56,12 +56,14 @@ class RosImageSubscriber:
             if message is not None:
                 return FramePacket(image=message.image, timestamp=message.timestamp)
             sleep(0.01)
-        raise TimeoutError(f"Timed out waiting for ROS2 image on topic {self.topic}")
+        raise TimeoutError(f"Timed out waiting for ROS2 image on topic {self.topic} after {self.timeout_sec:.1f}s.")
 
     def frames(self):
         while True:
             rclpy.spin_once(self._node, timeout_sec=0.1)
             if self._latest is None or self._sequence == self._last_yielded_sequence:
+                if self._latest is None:
+                    continue
                 continue
             self._last_yielded_sequence = self._sequence
             yield FramePacket(image=self._latest.image, timestamp=self._latest.timestamp)

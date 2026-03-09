@@ -33,3 +33,4 @@ def test_bridge_respects_disabled_flag_without_ros_runtime():
     assert bridge.depth_publisher.last_message is not None
     assert bridge.pose_publisher.last_message is not None
     assert bridge.pointcloud_publisher.last_message is not None
+    assert bridge.depth_publisher.last_message["header"]["frame_id"] == "atlas_camera"

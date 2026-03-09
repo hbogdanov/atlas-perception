@@ -17,9 +17,10 @@ try:
     from cv_bridge import CvBridge
     from geometry_msgs.msg import PoseStamped
     from rclpy.node import Node
-    from sensor_msgs.msg import Image, PointCloud2
+    from sensor_msgs.msg import Image, PointCloud2, PointField
     from sensor_msgs_py import point_cloud2
     from std_msgs.msg import Header
+    from builtin_interfaces.msg import Time as RosTime
 except ImportError:  # pragma: no cover
     rclpy = None
     CvBridge = None
@@ -27,8 +28,10 @@ except ImportError:  # pragma: no cover
     Node = None
     Image = None
     PointCloud2 = None
+    PointField = None
     point_cloud2 = None
     Header = None
+    RosTime = None
 
 
 @dataclass
@@ -52,21 +55,23 @@ class AtlasRosBridge:
             self.pointcloud_publisher.attach_ros(self._node, PointCloud2)
 
     def publish_depth(self, depth_map: np.ndarray, timestamp: float) -> None:
-        message = {"timestamp": timestamp, "depth": depth_map}
+        header = self._header_from_timestamp(timestamp)
+        message = {"header": header, "depth": depth_map}
         if self._node is not None and self._bridge is not None:
             ros_image = self._bridge.cv2_to_imgmsg(depth_map.astype(np.float32), encoding="32FC1")
-            ros_image.header.frame_id = self.config["frame_id"]
+            ros_image.header = header
             self.depth_publisher.publish(ros_image)
         else:
             self.depth_publisher.publish(message)
-        self.published["depth"] = depth_map
+        self.published["depth"] = message
 
     def publish_pose(self, pose, timestamp: float) -> None:
         rotation = pose.matrix[:3, :3]
         quaternion = rotation_matrix_to_quaternion(rotation)
+        header = self._header_from_timestamp(timestamp)
         if self._node is not None and PoseStamped is not None:
             message = PoseStamped()
-            message.header.frame_id = self.config["frame_id"]
+            message.header = header
             message.pose.position.x = float(pose.matrix[0, 3])
             message.pose.position.y = float(pose.matrix[1, 3])
             message.pose.position.z = float(pose.matrix[2, 3])
@@ -78,24 +83,29 @@ class AtlasRosBridge:
         else:
             self.pose_publisher.publish(
                 {
-                    "timestamp": timestamp,
+                    "header": header,
                     "pose": pose.matrix,
                     "orientation_source": "derived_from_pose_matrix",
                     "quaternion_xyzw": quaternion,
                 }
             )
-        self.published["pose"] = pose.matrix
+        self.published["pose"] = {"header": header, "pose": pose.matrix, "quaternion_xyzw": quaternion}
 
     def publish_pointcloud(self, point_cloud, timestamp: float) -> None:
+        header = self._header_from_timestamp(timestamp)
         if self._node is not None and PointCloud2 is not None and point_cloud2 is not None and Header is not None:
-            header = Header()
-            header.stamp = self._node.get_clock().now().to_msg()
-            header.frame_id = self.config["frame_id"]
-            cloud_msg = point_cloud2.create_cloud_xyz32(header, point_cloud.points.astype(np.float32).tolist())
+            cloud_msg = point_cloud.to_ros_pointcloud2(header, point_cloud2, PointField)
             self.pointcloud_publisher.publish(cloud_msg)
         else:
-            self.pointcloud_publisher.publish({"timestamp": timestamp, "points": point_cloud.points, "colors": point_cloud.colors})
-        self.published["pointcloud"] = point_cloud.points
+            colors = getattr(point_cloud, "colors", np.empty((0, 3), dtype=np.float32))
+            self.pointcloud_publisher.publish(
+                {"header": header, "points": point_cloud.points, "colors": colors}
+            )
+        self.published["pointcloud"] = {
+            "header": header,
+            "points": point_cloud.points,
+            "colors": getattr(point_cloud, "colors", np.empty((0, 3), dtype=np.float32)),
+        }
 
     def shutdown(self) -> None:
         if not self.enabled:
@@ -104,3 +114,14 @@ class AtlasRosBridge:
             self._node.destroy_node()
         if rclpy is not None and rclpy.ok():
             rclpy.shutdown()
+
+    def _header_from_timestamp(self, timestamp: float):
+        if Header is None:
+            return {"stamp": timestamp, "frame_id": self.config["frame_id"]}
+        header = Header()
+        header.frame_id = self.config["frame_id"]
+        if RosTime is not None:
+            secs = int(timestamp)
+            nanos = int((timestamp - secs) * 1_000_000_000)
+            header.stamp = RosTime(sec=secs, nanosec=nanos)
+        return header
