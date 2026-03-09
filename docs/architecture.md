@@ -31,6 +31,18 @@ ROS2 Topic Publishing
 5. `src/mapping` transforms those points into the world frame and fuses successive clouds into a larger map.
 6. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
 7. `src/sim` normalizes simulator camera topics and launch settings for Isaac Sim and Gazebo runs.
+8. `src/utils/demo_video.py` can render a composite demo artifact from the same run, combining RGB, depth, trajectory, and output status.
+
+## Gazebo Reference Flow
+
+The cleanest real simulator path is:
+
+1. launch TurtleBot3 Gazebo on Ubuntu with ROS2 Humble
+2. verify `/camera/image_raw` and `/camera/camera_info`
+3. run Atlas with `configs/turtlebot3_gazebo_rtabmap.yaml`
+4. consume external RTAB-Map pose on `/rtabmap/localization_pose`
+5. accumulate the world-frame cloud and publish `/atlas/depth`, `/atlas/pose`, `/atlas/path`, and `/atlas/pointcloud`
+6. write `demo/videos/turtlebot3_gazebo_rtabmap.mp4`
 
 ## Core Modules
 
@@ -42,6 +54,19 @@ ROS2 Topic Publishing
 - `src/mapping/pointcloud.py`: camera-frame back-projection, world-frame accumulation, and export adapters
 - `src/ros2/nodes.py`: ROS2 bridge used to publish depth, pose, path, and colored point clouds
 - `src/sim/common.py`: simulator bridge contract for runtime topic adaptation and launch arguments
+- `src/utils/demo_video.py`: composite video renderer for showcase outputs written from the main pipeline
+
+## Artifacts
+
+The main run path can write:
+
+- RGB snapshot
+- depth visualization
+- accumulated point cloud `.ply`
+- trajectory array, JSON, CSV, and XY plot
+- composite demo `.mp4`
+
+Those artifacts are produced from `src/main.py` based on the `output.*` config flags rather than a separate post-processing pass.
 
 ## Design Goals
 

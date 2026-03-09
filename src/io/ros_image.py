@@ -26,10 +26,20 @@ class RosImageMessage:
     timestamp: float
 
 
+@dataclass
+class RosCameraInfoMessage:
+    topic: str
+    fx: float
+    fy: float
+    cx: float
+    cy: float
+    timestamp: float
+
+
 class RosImageSubscriber:
     """ROS2 image subscription wrapper that converts incoming images to OpenCV frames."""
 
-    def __init__(self, topic: str, timeout_sec: float = 5.0) -> None:
+    def __init__(self, topic: str, camera_info_topic: str | None = None, timeout_sec: float = 5.0) -> None:
         if rclpy is None or CvBridge is None or Node is None or Image is None:
             raise RuntimeError("ROS2 image ingestion requires rclpy, sensor_msgs, and cv_bridge.")
         self._owns_runtime = False
@@ -37,16 +47,38 @@ class RosImageSubscriber:
             rclpy.init(args=None)
             self._owns_runtime = True
         self.topic = topic
+        self.camera_info_topic = camera_info_topic
         self.timeout_sec = timeout_sec
         self._bridge = CvBridge()
         self._node = Node("atlas_perception_image_source")
         self._latest: RosImageMessage | None = None
+        self._latest_camera_info: RosCameraInfoMessage | None = None
         self._sequence = 0
         self._last_yielded_sequence = -1
         self._subscription = self._node.create_subscription(Image, topic, self._callback, 10)
+        self._camera_info_subscription = None
+        if camera_info_topic:
+            from sensor_msgs.msg import CameraInfo
+
+            self._camera_info_subscription = self._node.create_subscription(
+                CameraInfo,
+                camera_info_topic,
+                self._camera_info_callback,
+                10,
+            )
 
     def latest(self) -> RosImageMessage | None:
         return self._latest
+
+    def get_camera_intrinsics(self) -> dict | None:
+        if self._latest_camera_info is None:
+            return None
+        return {
+            "fx": self._latest_camera_info.fx,
+            "fy": self._latest_camera_info.fy,
+            "cx": self._latest_camera_info.cx,
+            "cy": self._latest_camera_info.cy,
+        }
 
     def wait_for_frame(self) -> FramePacket:
         start = time()
@@ -81,3 +113,16 @@ class RosImageSubscriber:
             timestamp = time()
         self._latest = RosImageMessage(topic=self.topic, image=image, timestamp=timestamp)
         self._sequence += 1
+
+    def _camera_info_callback(self, message) -> None:
+        timestamp = float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
+        if timestamp == 0.0:
+            timestamp = time()
+        self._latest_camera_info = RosCameraInfoMessage(
+            topic=str(self.camera_info_topic),
+            fx=float(message.k[0]),
+            fy=float(message.k[4]),
+            cx=float(message.k[2]),
+            cy=float(message.k[5]),
+            timestamp=timestamp,
+        )

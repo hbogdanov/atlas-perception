@@ -35,6 +35,7 @@ class SimulatorBridge:
         merged.setdefault("ros2", {})
         merged["input"]["mode"] = "ros2"
         merged["input"]["source"] = self.spec.camera_topic
+        merged["input"]["camera_info_topic"] = self.spec.camera_info_topic
         merged["ros2"]["enabled"] = True
         return merged
 

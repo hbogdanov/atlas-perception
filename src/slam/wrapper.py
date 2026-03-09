@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
+from src.ros2.transforms import quaternion_to_rotation_matrix
 from src.slam.odometry import PoseEstimate, identity_pose
 from src.slam.trajectory import Trajectory
 
@@ -103,6 +104,16 @@ class RtabmapBackend(SlamBackend):
 
     def _pose_callback(self, message: PoseStamped) -> None:
         transform = np.eye(4, dtype=np.float32)
+        quaternion = np.array(
+            [
+                float(message.pose.orientation.x),
+                float(message.pose.orientation.y),
+                float(message.pose.orientation.z),
+                float(message.pose.orientation.w),
+            ],
+            dtype=np.float32,
+        )
+        transform[:3, :3] = quaternion_to_rotation_matrix(quaternion)
         transform[0, 3] = float(message.pose.position.x)
         transform[1, 3] = float(message.pose.position.y)
         transform[2, 3] = float(message.pose.position.z)
@@ -128,6 +139,7 @@ class SlamWrapper:
         self.trajectory.export(path)
         self.trajectory.export_json(path.with_suffix(".json"))
         self.trajectory.export_csv(path.with_suffix(".csv"))
+        self.trajectory.export_plot(path.with_name("trajectory_plot.png"))
 
     def shutdown(self) -> None:
         self.backend.shutdown()

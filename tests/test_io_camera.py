@@ -4,25 +4,38 @@ from src.io.camera import create_frame_source
 
 
 class FakeRosSource:
-    def __init__(self, topic: str, timeout_sec: float) -> None:
+    def __init__(self, topic: str, camera_info_topic: str | None, timeout_sec: float) -> None:
         self.topic = topic
+        self.camera_info_topic = camera_info_topic
         self.timeout_sec = timeout_sec
 
 
 def test_create_frame_source_uses_ros2_subscriber(monkeypatch):
     created = {}
 
-    def fake_factory(topic: str, timeout_sec: float):
+    def fake_factory(topic: str, camera_info_topic: str | None, timeout_sec: float):
         created["topic"] = topic
+        created["camera_info_topic"] = camera_info_topic
         created["timeout_sec"] = timeout_sec
-        return FakeRosSource(topic, timeout_sec)
+        return FakeRosSource(topic, camera_info_topic, timeout_sec)
 
     monkeypatch.setattr("src.io.camera.RosImageSubscriber", fake_factory)
 
-    source = create_frame_source({"mode": "ros2", "source": "/camera/image_raw", "timeout_sec": 2.5})
+    source = create_frame_source(
+        {
+            "mode": "ros2",
+            "source": "/camera/image_raw",
+            "camera_info_topic": "/camera/camera_info",
+            "timeout_sec": 2.5,
+        }
+    )
 
     assert isinstance(source, FakeRosSource)
-    assert created == {"topic": "/camera/image_raw", "timeout_sec": 2.5}
+    assert created == {
+        "topic": "/camera/image_raw",
+        "camera_info_topic": "/camera/camera_info",
+        "timeout_sec": 2.5,
+    }
 
 
 def test_create_frame_source_rejects_unknown_mode():

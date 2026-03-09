@@ -1,6 +1,7 @@
 input:
   mode: ros2
   source: /gazebo/camera/image_raw
+  camera_info_topic: /gazebo/camera/camera_info
   width: 1280
   height: 720
   fps: 30
@@ -55,8 +56,10 @@ ros2:
 output:
   save_rgb_snapshot: true
   save_depth_snapshot: true
+  save_demo_video: true
   save_depth_video: false
   save_trajectory: true
   save_pointcloud: true
   output_dir: data/outputs/gazebo_rtabmap
+  demo_video_path: demo/videos/gazebo_rtabmap_demo.mp4
   visualize: true

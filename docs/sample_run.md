@@ -20,17 +20,44 @@ Example run command:
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml --max-frames 100
 ```
 
+That Gazebo config also writes a composite showcase video to:
+
+- `demo/videos/gazebo_demo.mp4`
+
 Example RTAB-Map-assisted run:
 
 ```bash
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_rtabmap_demo.yaml --max-frames 100
 ```
 
+That RTAB-Map demo config writes:
+
+- `demo/videos/gazebo_rtabmap_demo.mp4`
+
+Ubuntu TurtleBot3 reference run:
+
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/turtlebot3_gazebo_rtabmap.yaml --max-frames 300
+```
+
+That run is documented in `docs/ubuntu_gazebo_setup.md` and is intended to write:
+
+- `demo/videos/turtlebot3_gazebo_rtabmap.mp4`
+
 If `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud` are enabled, the main pipeline will save:
 
 - `rgb_frame.png`
 - `depth_map.png`
 - `frame_cloud.ply`
+
+If `output.save_demo_video` is enabled, the pipeline also writes a composite `.mp4` that includes:
+
+- source camera feed
+- depth visualization
+- trajectory plot
+- live status panel with pose, metrics, and ROS topic names
+
+The composite video is generated directly from `src.main` through `src/utils/demo_video.py`.
 
 Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
 
@@ -40,6 +67,8 @@ Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
 - `data/outputs/tum_main_eval/trajectory.npy`
 - `data/outputs/tum_main_eval/trajectory.json`
 - `data/outputs/tum_main_eval/trajectory.csv`
+- `data/outputs/tum_main_eval/trajectory_plot.png`
+- `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 
 Observed runtime summary from that run:
 

@@ -1,26 +1,26 @@
 input:
   mode: ros2
-  source: /gazebo/camera/image_raw
-  camera_info_topic: /gazebo/camera/camera_info
-  width: 1280
-  height: 720
+  source: /camera/image_raw
+  camera_info_topic: /camera/camera_info
+  width: 640
+  height: 480
   fps: 30
   timeout_sec: 5.0
 
 sim:
   platform: gazebo
-  namespace: /gazebo
-  camera_topic: /gazebo/camera/image_raw
-  camera_info_topic: /gazebo/camera/camera_info
+  namespace: /
+  camera_topic: /camera/image_raw
+  camera_info_topic: /camera/camera_info
   clock_topic: /clock
-  launch_package: gazebo_ros
-  launch_file: gazebo.launch.py
+  launch_package: turtlebot3_gazebo
+  launch_file: turtlebot3_world.launch.py
 
 camera:
-  fx: 700.0
-  fy: 700.0
-  cx: 640.0
-  cy: 360.0
+  fx: 525.0
+  fy: 525.0
+  cx: 319.5
+  cy: 239.5
 
 depth:
   model: midas
@@ -33,7 +33,7 @@ depth:
   prefer_torch_hub: true
 
 slam:
-  mode: dummy
+  mode: rtabmap
   frame_stride: 1
   pose_topic: /rtabmap/localization_pose
   timeout_sec: 0.05
@@ -43,7 +43,7 @@ mapping:
   representation: pointcloud
   max_points: 200000
   stride: 4
-  export_path: data/outputs/gazebo/frame_cloud.ply
+  export_path: data/outputs/turtlebot3_gazebo/frame_cloud.ply
 
 ros2:
   enabled: true
@@ -51,7 +51,7 @@ ros2:
   pose_topic: /atlas/pose
   path_topic: /atlas/path
   pointcloud_topic: /atlas/pointcloud
-  frame_id: gazebo_camera
+  frame_id: turtlebot3_camera
 
 output:
   save_rgb_snapshot: true
@@ -60,6 +60,6 @@ output:
   save_depth_video: false
   save_trajectory: true
   save_pointcloud: true
-  output_dir: data/outputs/gazebo
-  demo_video_path: demo/videos/gazebo_demo.mp4
+  output_dir: data/outputs/turtlebot3_gazebo
+  demo_video_path: demo/videos/turtlebot3_gazebo_rtabmap.mp4
   visualize: true

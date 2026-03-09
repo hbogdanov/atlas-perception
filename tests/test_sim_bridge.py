@@ -19,6 +19,7 @@ def test_gazebo_bridge_applies_camera_topic_to_runtime_config():
     merged = bridge.apply(config)
     assert merged["input"]["mode"] == "ros2"
     assert merged["input"]["source"] == "/gazebo/camera/image_raw"
+    assert merged["input"]["camera_info_topic"] == "/gazebo/camera/camera_info"
     assert merged["ros2"]["enabled"] is True
 
 

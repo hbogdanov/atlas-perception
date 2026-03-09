@@ -56,6 +56,7 @@ def create_frame_source(config: dict) -> FrameSource:
     if mode == "ros2":
         return RosImageSubscriber(
             topic=str(config["source"]),
+            camera_info_topic=config.get("camera_info_topic"),
             timeout_sec=float(config.get("timeout_sec", 5.0)),
         )
     raise ValueError(f"Unsupported input mode: {mode}")

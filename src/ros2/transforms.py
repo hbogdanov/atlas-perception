@@ -44,3 +44,26 @@ def rotation_matrix_to_quaternion(rotation: np.ndarray) -> np.ndarray:
     if norm == 0.0:
         raise ValueError("Quaternion conversion produced a zero-length result.")
     return quat / norm
+
+
+def quaternion_to_rotation_matrix(quaternion_xyzw: np.ndarray) -> np.ndarray:
+    quat = np.asarray(quaternion_xyzw, dtype=np.float32)
+    if quat.shape != (4,):
+        raise ValueError("Expected quaternion with shape (4,) in xyzw order.")
+    norm = np.linalg.norm(quat)
+    if norm == 0.0:
+        raise ValueError("Quaternion must be non-zero.")
+    x, y, z, w = quat / norm
+
+    xx, yy, zz = x * x, y * y, z * z
+    xy, xz, yz = x * y, x * z, y * z
+    wx, wy, wz = w * x, w * y, w * z
+
+    return np.array(
+        [
+            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
+            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
+            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
+        ],
+        dtype=np.float32,
+    )

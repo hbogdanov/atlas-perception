@@ -14,6 +14,7 @@ from src.ros2.nodes import AtlasRosBridge
 from src.sim.factory import create_sim_bridge
 from src.slam.wrapper import SlamWrapper
 from src.utils.config import load_config
+from src.utils.demo_video import DemoVideoRecorder
 from src.utils.logger import get_logger
 from src.utils.perf import Timer
 
@@ -48,6 +49,16 @@ def save_demo_snapshots(output_dir: Path, rgb, depth_map, config: dict, saved: s
         saved.add("depth")
 
 
+def create_demo_video_recorder(config: dict, output_dir: Path) -> DemoVideoRecorder | None:
+    if not config["output"].get("save_demo_video", False):
+        return None
+    path = Path(config["output"].get("demo_video_path", output_dir / "atlas_demo.mp4"))
+    fps = float(config["output"].get("demo_video_fps", config["input"].get("fps", 15)))
+    width = int(config["output"].get("demo_video_width", 1280))
+    height = int(config["output"].get("demo_video_height", 720))
+    return DemoVideoRecorder(path=path, fps=fps, width=width, height=height)
+
+
 def run() -> None:
     args = parse_args()
     try:
@@ -59,12 +70,14 @@ def run() -> None:
         config = sim_bridge.apply(config)
     output_dir = ensure_output_dir(config["output"]["output_dir"])
 
+    demo_video: DemoVideoRecorder | None = None
     try:
         source = create_frame_source(config["input"])
         depth_estimator = DepthEstimator(config["depth"])
         slam = SlamWrapper(config["slam"])
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
         ros_bridge = AtlasRosBridge(config["ros2"])
+        demo_video = create_demo_video_recorder(config, output_dir)
     except Exception as exc:
         raise RuntimeError(f"Failed to initialize pipeline components: {exc}") from exc
 
@@ -80,6 +93,7 @@ def run() -> None:
         for frame in source.frames():
             timestamp = frame.timestamp
             rgb = frame.image
+            mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
             with Timer() as depth_timer:
                 depth_map = depth_estimator.predict(rgb)
             pose = slam.update(rgb, depth_map, timestamp)
@@ -92,6 +106,28 @@ def run() -> None:
             ros_bridge.publish_pointcloud(point_cloud, timestamp)
 
             save_demo_snapshots(output_dir, rgb, depth_map, config, saved_snapshots)
+            if demo_video is not None:
+                demo_video.write(
+                    rgb=rgb,
+                    depth_map=depth_map,
+                    trajectory=slam.trajectory,
+                    pose=pose,
+                    metrics={
+                        "depth_ms": depth_timer.result.milliseconds,
+                        "mapping_ms": mapping_timer.result.milliseconds,
+                        "fps": processed / max(perf_counter() - start_time, 1e-6),
+                        "points": point_cloud.points.shape[0],
+                    },
+                    runtime={
+                        "input_mode": str(config["input"]["mode"]),
+                        "slam_mode": str(config["slam"]["mode"]),
+                        "frame_id": str(config["ros2"].get("frame_id", "atlas_camera")),
+                        "depth_topic": str(config["ros2"].get("depth_topic", "/atlas/depth")),
+                        "pose_topic": str(config["ros2"].get("pose_topic", "/atlas/pose")),
+                        "path_topic": str(config["ros2"].get("path_topic", "/atlas/path")),
+                        "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
+                    },
+                )
 
             if config["output"].get("visualize", False):
                 _ = colorize_depth(depth_map)
@@ -125,6 +161,8 @@ def run() -> None:
     source.close()
     slam.shutdown()
     ros_bridge.shutdown()
+    if demo_video is not None:
+        demo_video.close()
     total_elapsed = max(perf_counter() - start_time, 1e-6)
     if processed:
         LOGGER.info(

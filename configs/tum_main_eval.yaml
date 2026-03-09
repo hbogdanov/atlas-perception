@@ -8,6 +8,8 @@ ros2:
 output:
   save_rgb_snapshot: true
   save_depth_snapshot: true
+  save_demo_video: true
   save_pointcloud: true
   save_trajectory: true
   output_dir: data/outputs/tum_main_eval
+  demo_video_path: data/outputs/tum_main_eval/atlas_eval_demo.mp4

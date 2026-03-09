@@ -23,7 +23,7 @@ depth:
   prefer_torch_hub: true
 
 slam:
-  mode: dummy
+  mode: disabled
   frame_stride: 1
   pose_topic: /rtabmap/localization_pose
   timeout_sec: 0.05
@@ -46,8 +46,13 @@ ros2:
 output:
   save_rgb_snapshot: false
   save_depth_snapshot: false
+  save_demo_video: false
   save_depth_video: false
   save_trajectory: true
   save_pointcloud: true
   output_dir: data/outputs
+  demo_video_path: data/outputs/atlas_demo.mp4
+  demo_video_fps: 15
+  demo_video_width: 1280
+  demo_video_height: 720
   visualize: false

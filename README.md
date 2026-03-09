@@ -2,6 +2,14 @@
 
 Atlas Perception is a ROS2-compatible robotics perception pipeline that converts camera streams into depth estimates and spatial outputs for downstream navigation in simulated environments.
 
+Additional documentation:
+
+- [docs/index.md](docs/index.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/ros_topics.md](docs/ros_topics.md)
+- [docs/sample_run.md](docs/sample_run.md)
+- [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md)
+
 ## Features
 
 - Camera ingestion from webcam, video files, or ROS2 image topics
@@ -12,6 +20,7 @@ Atlas Perception is a ROS2-compatible robotics perception pipeline that converts
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
+- Composite demo video export showing feed, depth, trajectory, and published-output status
 
 ## Pipeline
 
@@ -50,12 +59,22 @@ python -m src.main --config configs/default.yaml --override-config configs/gazeb
 The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
 The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simulator and ROS-specific override configs enable it explicitly.
 The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
+For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 
 ## Configuration
 
 Primary runtime settings live in `configs/default.yaml`. You can layer an additional YAML file on top with `--override-config`, and nested dictionaries are merged recursively.
+The configs are intentionally split by purpose:
+
+- `configs/default.yaml`: safe baseline with ROS2 off and SLAM disabled
+- `configs/tum_main_eval.yaml`: reproducible TUM artifact evaluation run
+- `configs/gazebo_demo.yaml`: Gazebo demo with dummy motion for world-frame accumulation testing
+- `configs/gazebo_rtabmap_demo.yaml`: Gazebo demo that consumes external RTAB-Map poses
+- `configs/turtlebot3_gazebo_rtabmap.yaml`: TurtleBot3 Gazebo run that consumes camera topics and external RTAB-Map poses
+- `configs/isaac_demo.yaml`: Isaac Sim demo with dummy motion and ROS2 publishing
 
 For ROS2 ingestion, `input.source` is the camera topic. There is no separate duplicate image-topic field under `ros2`.
+When available, `input.camera_info_topic` can provide live intrinsics from `sensor_msgs/CameraInfo`, overriding static `camera.fx`, `camera.fy`, `camera.cx`, and `camera.cy` during ROS2 or simulator runs.
 
 Depth outputs are explicit:
 
@@ -97,6 +116,31 @@ If ROS2 `launch` is available, the launch files also wrap those flows:
 ros2 launch launch/atlas_perception.launch.py
 ros2 launch launch/sim_demo.launch.py sim_config:=configs/gazebo_demo.yaml
 ```
+
+Expected simulator showcase outputs:
+
+- `demo/videos/gazebo_demo.mp4`
+- `demo/videos/gazebo_rtabmap_demo.mp4`
+- `demo/videos/turtlebot3_gazebo_rtabmap.mp4`
+- `demo/videos/isaac_demo.mp4`
+
+## Ubuntu Gazebo Workflow
+
+For a real ROS2 + Gazebo setup, use Ubuntu 22.04 with ROS2 Humble and TurtleBot3. The exact install and run steps are in [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md).
+
+Canonical simulator run:
+
+```bash
+ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
+python -m src.main --config configs/default.yaml --override-config configs/turtlebot3_gazebo_rtabmap.yaml --max-frames 300
+```
+
+Before running Atlas, verify the simulator is actually publishing:
+
+- `/camera/image_raw`
+- `/camera/camera_info`
+
+If the camera topic names differ, update `input.source` and `input.camera_info_topic` in `configs/turtlebot3_gazebo_rtabmap.yaml`.
 
 ## World-Frame Mapping
 
@@ -179,6 +223,8 @@ When snapshot and export flags are enabled, the main pipeline writes:
 - `trajectory.npy`
 - `trajectory.json`
 - `trajectory.csv`
+- `trajectory_plot.png`
+- `atlas_demo.mp4`
 
 Example artifact directory:
 
@@ -188,12 +234,15 @@ Example artifact directory:
 - `data/outputs/tum_main_eval/trajectory.npy`
 - `data/outputs/tum_main_eval/trajectory.json`
 - `data/outputs/tum_main_eval/trajectory.csv`
+- `data/outputs/tum_main_eval/trajectory_plot.png`
+- `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 
 ## Known Limitations
 
 - Monocular depth is relative by default unless a calibrated backend/scaling path is added.
 - `slam.mode: rtabmap` expects an external RTAB-Map ROS2 node to already be running and publishing poses.
 - Simulator bridges are lightweight runtime/launch adapters, not deep simulator-specific integrations.
+- A real simulator-backed demo video still requires a local Gazebo or Isaac Sim runtime; this repo can render the showcase asset once those feeds are available.
 
 ## ROS2 Topics
 

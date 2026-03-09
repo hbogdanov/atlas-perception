@@ -49,6 +49,13 @@ class PointCloudBuilder:
     def colors(self) -> np.ndarray:
         return self._colors
 
+    def update_camera_intrinsics(self, intrinsics: dict | None) -> None:
+        if not intrinsics:
+            return
+        for key in ("fx", "fy", "cx", "cy"):
+            if key in intrinsics:
+                self.camera_config[key] = float(intrinsics[key])
+
     def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate) -> PointCloudData:
         stride = int(self.mapping_config.get("stride", 4))
         sample_points, sample_colors = depth_to_pointcloud(depth_map, rgb, self.camera_config, stride=stride)
