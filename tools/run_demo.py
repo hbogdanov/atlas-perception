@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,10 +16,15 @@ from tools.export_demo_gif import export_demo_gif
 DEMO_PRESETS = {
     "tum": {
         "config": "configs/default.yaml",
-        "override_config": "configs/tum_main_eval.yaml",
-        "max_frames": 30,
-        "video_path": "data/outputs/tum_main_eval/atlas_eval_demo.mp4",
+        "override_config": "configs/tum_demo.yaml",
+        "max_frames": 120,
+        "video_path": "demo/videos/tum_demo.mp4",
         "gif_path": "demo/gifs/tum_demo.gif",
+        "trajectory_plot": "data/outputs/tum_demo_eval/trajectory_plot.png",
+        "trajectory_screenshot": "demo/screenshots/tum_trajectory_plot.png",
+        "gif_fps": 6.0,
+        "gif_max_frames": 90,
+        "gif_width": 960,
     }
 }
 
@@ -52,8 +58,19 @@ def run_demo(dataset: str, max_frames: int | None = None, skip_gif: bool = False
 
     preset = DEMO_PRESETS[dataset]
     video_path = REPO_ROOT / preset["video_path"]
+    trajectory_plot = REPO_ROOT / preset["trajectory_plot"]
+    trajectory_screenshot = REPO_ROOT / preset["trajectory_screenshot"]
+    if trajectory_plot.exists():
+        trajectory_screenshot.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(trajectory_plot, trajectory_screenshot)
     if not skip_gif:
-        export_demo_gif(video_path, REPO_ROOT / preset["gif_path"])
+        export_demo_gif(
+            video_path,
+            REPO_ROOT / preset["gif_path"],
+            fps=float(preset.get("gif_fps", 8.0)),
+            max_frames=int(preset.get("gif_max_frames", 80)),
+            width=int(preset.get("gif_width", 960)),
+        )
     return video_path
 
 

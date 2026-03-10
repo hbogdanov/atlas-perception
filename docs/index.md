@@ -13,6 +13,7 @@ Use these docs in this order:
 The repository config split is:
 
 - `configs/default.yaml`: safe baseline, ROS2 off, SLAM disabled
+- `configs/tum_demo.yaml`: looping TUM showcase run with dummy pose integration and GIF/video export
 - `configs/tum_main_eval.yaml`: reproducible TUM evaluation and artifact export
 - `configs/gazebo_demo.yaml`: Gazebo ROS2 demo with dummy trajectory
 - `configs/gazebo_rtabmap_demo.yaml`: Gazebo ROS2 demo consuming external RTAB-Map pose
@@ -31,6 +32,7 @@ Depending on config flags, Atlas can write:
 - `trajectory.csv`
 - `trajectory_plot.png`
 - `atlas_demo.mp4`
+- `tum_demo.mp4`
 - `tum_demo.gif`
 - `tum_depth_eval.json`
 - `tum_depth_eval.csv`

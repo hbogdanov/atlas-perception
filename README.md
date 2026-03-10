@@ -72,7 +72,7 @@ Projected point cloud:
 
 Trajectory plot:
 
-![Trajectory plot](data/outputs/tum_main_eval/trajectory_plot.png)
+![Trajectory plot](demo/screenshots/tum_trajectory_plot.png)
 
 ## Quickstart
 
@@ -94,6 +94,7 @@ The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simul
 The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
+That preset uses looping video input plus `slam.mode: dummy` so the trajectory panel and trajectory plot visibly build over time.
 
 ## Configuration
 
@@ -101,6 +102,7 @@ Primary runtime settings live in `configs/default.yaml`. You can layer an additi
 The configs are intentionally split by purpose:
 
 - `configs/default.yaml`: safe baseline with ROS2 off and SLAM disabled
+- `configs/tum_demo.yaml`: looping TUM showcase run with dummy pose integration and GIF/video export
 - `configs/tum_main_eval.yaml`: reproducible TUM artifact evaluation run
 - `configs/gazebo_demo.yaml`: Gazebo demo with dummy motion for world-frame accumulation testing
 - `configs/gazebo_rtabmap_demo.yaml`: Gazebo demo that consumes external RTAB-Map poses
@@ -203,8 +205,10 @@ Documented outputs for a full run are described in `docs/sample_run.md`. A succe
 
 Current generated demo artifacts:
 
+- [tum_demo.gif](demo/gifs/tum_demo.gif)
 - [tum_rgb_frame.png](demo/screenshots/tum_rgb_frame.png)
 - [tum_depth_map.png](demo/screenshots/tum_depth_map.png)
+- [tum_trajectory_plot.png](demo/screenshots/tum_trajectory_plot.png)
 - [pointcloud_vis.png](demo/screenshots/pointcloud_vis.png)
 - [frame_cloud.ply](data/outputs/tum_demo/frame_cloud.ply)
 

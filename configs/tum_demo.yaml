@@ -1,0 +1,19 @@
+input:
+  mode: video
+  source: data/outputs/tum_demo/tum_rgb_demo.mp4
+  loop: true
+
+slam:
+  mode: dummy
+
+ros2:
+  enabled: false
+
+output:
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
+  save_demo_video: true
+  save_pointcloud: true
+  save_trajectory: true
+  output_dir: data/outputs/tum_demo_eval
+  demo_video_path: demo/videos/tum_demo.mp4

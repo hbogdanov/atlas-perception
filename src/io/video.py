@@ -9,7 +9,8 @@ from src.io.types import FramePacket
 
 
 class VideoFrameSource(FrameSource):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, loop: bool = False) -> None:
+        self._loop = bool(loop)
         self._capture = cv2.VideoCapture(path)
         if not self._capture.isOpened():
             raise RuntimeError(f"Unable to open video source at {path}.")
@@ -18,6 +19,9 @@ class VideoFrameSource(FrameSource):
         while True:
             ok, frame = self._capture.read()
             if not ok:
+                if self._loop:
+                    self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    continue
                 break
             yield FramePacket(image=frame, timestamp=time())
 

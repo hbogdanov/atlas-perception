@@ -84,8 +84,11 @@ python tools/run_demo.py --dataset tum
 
 That wrapper runs the TUM preset through `src.main` and exports:
 
-- `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
+- `demo/videos/tum_demo.mp4`
 - `demo/gifs/tum_demo.gif`
+- `demo/screenshots/tum_trajectory_plot.png`
+
+The preset loops the short TUM source clip and uses `slam.mode: dummy`, so the exported trajectory visibly grows instead of staying fixed.
 
 Quantitative depth evaluation can be run separately on a TUM RGB-D folder:
 

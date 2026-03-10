@@ -41,3 +41,18 @@ def test_create_frame_source_uses_ros2_subscriber(monkeypatch):
 def test_create_frame_source_rejects_unknown_mode():
     with pytest.raises(ValueError):
         create_frame_source({"mode": "unknown"})
+
+
+def test_create_frame_source_passes_video_loop_flag(monkeypatch):
+    created = {}
+
+    def fake_video_source(path: str, loop: bool = False):
+        created["path"] = path
+        created["loop"] = loop
+        return object()
+
+    monkeypatch.setattr("src.io.camera.VideoFrameSource", fake_video_source)
+
+    create_frame_source({"mode": "video", "source": "demo.mp4", "loop": True})
+
+    assert created == {"path": "demo.mp4", "loop": True}

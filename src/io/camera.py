@@ -52,7 +52,7 @@ def create_frame_source(config: dict) -> FrameSource:
             height=int(config["height"]),
         )
     if mode == "video":
-        return VideoFrameSource(str(config["source"]))
+        return VideoFrameSource(str(config["source"]), loop=bool(config.get("loop", False)))
     if mode == "ros2":
         return RosImageSubscriber(
             topic=str(config["source"]),
