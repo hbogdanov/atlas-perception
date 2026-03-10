@@ -116,6 +116,20 @@ That live entrypoint opens:
 
 Use `--save-artifacts` if you want the live run to export `frame_cloud.ply` and trajectory files on exit.
 
+Isaac Sim showcase:
+
+```bash
+python tools/run_isaac_demo.py --slam-mode dummy
+```
+
+Or through ROS2 launch:
+
+```bash
+ros2 launch launch/isaac_atlas.launch.py
+```
+
+That path binds Atlas to Isaac Sim RGB and `CameraInfo` topics and writes the standard Isaac artifact set under `data/outputs/isaac/`.
+
 Quantitative depth evaluation can be run separately on a TUM RGB-D folder:
 
 ```bash

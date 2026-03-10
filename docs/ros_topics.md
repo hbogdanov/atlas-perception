@@ -6,6 +6,13 @@
 - `input.camera_info_topic`: optional `sensor_msgs/CameraInfo` stream used to update `fx`, `fy`, `cx`, and `cy` for ROS2 and simulator workflows
 - `slam.pose_topic`: external pose input when `slam.mode` is `rtabmap`; the TurtleBot3 Gazebo reference setup uses `/rtabmap/localization_pose`
 
+Default Isaac Sim binding:
+
+- RGB: `/isaac/camera/color`
+- CameraInfo: `/isaac/camera/camera_info`
+
+Use `python tools/run_isaac_demo.py` or `ros2 launch launch/isaac_atlas.launch.py` to attach Atlas to those topics directly.
+
 ## Publications
 
 - `/atlas/depth`: depth image payload with `header.stamp` and `header.frame_id`; content depends on `depth.output_mode`
@@ -47,3 +54,4 @@ When `CameraInfo` is present, Atlas updates intrinsics before projecting depth i
 - `slam.mode: dummy` produces synthetic forward motion for testing map accumulation.
 - `slam.mode: rtabmap` expects an external RTAB-Map ROS2 node publishing `slam.pose_topic` and Atlas consumes that pose for world-frame mapping.
 - The Ubuntu TurtleBot3 Gazebo reference config is `configs/turtlebot3_gazebo_rtabmap.yaml`.
+- The Isaac Sim reference config is `configs/isaac_demo.yaml`.

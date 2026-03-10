@@ -8,6 +8,7 @@ Additional documentation:
 - [docs/architecture.md](docs/architecture.md)
 - [docs/ros_topics.md](docs/ros_topics.md)
 - [docs/sample_run.md](docs/sample_run.md)
+- [docs/isaac_sim_setup.md](docs/isaac_sim_setup.md)
 - [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md)
 
 ## Features
@@ -100,6 +101,7 @@ For simulator-backed showcase runs, `output.save_demo_video` writes a composite 
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 That preset uses looping video input plus `slam.mode: dummy` so the trajectory panel and trajectory plot visibly build over time.
 For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, trajectory, and status, and `--show-cloud` adds a live Open3D point-cloud window.
+For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
 
 ## Live Webcam Mapping
 
@@ -187,6 +189,13 @@ RTAB-Map example:
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_rtabmap_demo.yaml
 ```
 
+Isaac Sim example:
+
+```bash
+python tools/run_isaac_demo.py --slam-mode dummy
+ros2 launch launch/isaac_atlas.launch.py
+```
+
 ## Simulator Runs
 
 Use the simulator-specific configs directly:
@@ -200,6 +209,7 @@ If ROS2 `launch` is available, the launch files also wrap those flows:
 
 ```bash
 ros2 launch launch/atlas_perception.launch.py
+ros2 launch launch/isaac_atlas.launch.py
 ros2 launch launch/sim_demo.launch.py sim_config:=configs/gazebo_demo.yaml
 ```
 

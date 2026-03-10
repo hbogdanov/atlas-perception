@@ -6,6 +6,7 @@ Use these docs in this order:
 - `docs/architecture.md`: pipeline stages, world-frame mapping flow, and simulator reference path
 - `docs/ros_topics.md`: ROS2 subscriptions, publications, frame semantics, and SLAM topic contract
 - `docs/sample_run.md`: reproducible artifact generation commands and expected outputs
+- `docs/isaac_sim_setup.md`: Isaac Sim ROS2 topic contract and Atlas launch commands
 - `docs/ubuntu_gazebo_setup.md`: Ubuntu 22.04 + ROS2 Humble + TurtleBot3 Gazebo setup for a real simulator-backed run
 
 ## Config Guide
@@ -60,6 +61,7 @@ Atlas currently documents and supports:
 - pose-graph export with simple loop-closure constraints
 - composite demo video generation from the main pipeline
 - one-command live webcam mapping through `python run_webcam_mapping.py`
+- dedicated Isaac Sim runner through `python tools/run_isaac_demo.py`
 
 Atlas does not yet claim:
 
