@@ -3,6 +3,7 @@
 Use these docs in this order:
 
 - `README.md`: project overview, quickstart, artifact examples, and config entrypoints
+- `docs/pipeline.md`: recruiter-friendly walkthrough of depth inference, projection, fusion, mapping, and trajectory
 - `docs/architecture.md`: pipeline stages, world-frame mapping flow, and simulator reference path
 - `docs/ros_topics.md`: ROS2 subscriptions, publications, frame semantics, and SLAM topic contract
 - `docs/sample_run.md`: reproducible artifact generation commands and expected outputs

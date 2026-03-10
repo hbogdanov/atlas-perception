@@ -5,6 +5,7 @@ Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produ
 Additional documentation:
 
 - [docs/index.md](docs/index.md)
+- [docs/pipeline.md](docs/pipeline.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/ros_topics.md](docs/ros_topics.md)
 - [docs/sample_run.md](docs/sample_run.md)
