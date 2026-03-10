@@ -18,8 +18,21 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "black>=24.0",
   "pytest>=8.0",
+  "ruff>=0.9",
 ]
 
 [tool.setuptools]
 package-dir = {"" = "."}
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

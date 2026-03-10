@@ -51,6 +51,7 @@ Atlas currently documents and supports:
 - quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - quantitative trajectory evaluation with `ATE` and `RPE` against TUM-format ground truth
 - stable local pytest execution through repo-local test temp paths
+- GitHub Actions CI for `pytest`, `black --check`, and `ruff check`
 - colored point cloud generation and `.ply` export
 - selectable point-cloud or TSDF volumetric mapping
 - ROS2 publishing for depth, pose, path, and point cloud outputs
