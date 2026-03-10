@@ -100,6 +100,7 @@ class DemoVideoRecorder:
             f"pose xyz: ({tx:.2f}, {ty:.2f}, {tz:.2f})",
             f"tracking_ok: {pose.tracking_ok}",
             f"depth_ms: {metrics['depth_ms']:.2f}",
+            f"semantic_ms: {metrics.get('semantic_ms', 0.0):.2f}",
             f"mapping_ms: {metrics['mapping_ms']:.2f}",
             f"fps: {metrics['fps']:.2f}",
             f"points: {int(metrics['points'])}",

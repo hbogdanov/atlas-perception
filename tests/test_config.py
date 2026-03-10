@@ -13,6 +13,7 @@ def test_load_config():
     assert config["output"]["save_rgb_snapshot"] is False
     assert config["depth"]["depth_model"] == "midas"
     assert config["mapping"]["representation"] == "pointcloud"
+    assert config["semantics"]["enabled"] is False
 
 
 def test_deep_merge_dicts_recursively_overrides_nested_values():
@@ -184,6 +185,35 @@ def test_validate_config_rejects_invalid_depth_postprocess_alpha():
                     "output_mode": "raw",
                     "postprocess": {"enabled": True, "temporal_alpha": 1.5},
                 },
+                "slam": {"mode": "dummy"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
+
+
+def test_validate_config_rejects_invalid_semantic_settings():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw"},
+                "semantics": {"enabled": True, "backend": "grounded_sam"},
+                "slam": {"mode": "dummy"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw"},
+                "semantics": {"enabled": True, "backend": "yolov8_seg", "confidence": 1.5},
                 "slam": {"mode": "dummy"},
                 "mapping": {"stride": 1, "max_points": 10},
                 "ros2": {},

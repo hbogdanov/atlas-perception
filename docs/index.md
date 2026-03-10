@@ -28,7 +28,9 @@ Depending on config flags, Atlas can write:
 
 - `rgb_frame.png`
 - `depth_map.png`
+- `semantic_overlay.png`
 - `frame_cloud.ply`
+- `semantic_cloud.ply`
 - `tsdf_mesh.ply`
 - `trajectory.npy`
 - `trajectory.json`
@@ -50,6 +52,7 @@ Atlas currently documents and supports:
 
 - camera ingestion from webcam, video, and ROS2 image topics
 - plugin-based depth backend selection through `depth.depth_model`, with built-in MiDaS and Depth Anything backends
+- optional semantic segmentation through `semantics.backend`, with a YOLOv8 path for semantic overlays and semantic point clouds
 - quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - quantitative trajectory evaluation with `ATE` and `RPE` against TUM-format ground truth
 - stable local pytest execution through repo-local test temp paths

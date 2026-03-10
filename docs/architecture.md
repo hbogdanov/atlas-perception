@@ -10,6 +10,8 @@ Camera input
       v
 Depth Estimation
       |
+      +--> Semantic Segmentation
+      |
       +--> Trajectory Estimation / Pose Integration
       |
       v
@@ -26,12 +28,13 @@ ROS2 Topic Publishing
 
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
 2. `src/depth` loads a pretrained depth backend, converts RGB frames into dense depth estimates, and can run post-inference refinement.
-3. `src/slam` consumes observations and emits `T_world_camera` from `disabled`, `dummy`, or `rtabmap` backends, while pose-graph bookkeeping records odometry and loop-closure edges.
-4. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
-5. `src/mapping` transforms those points into the world frame and either fuses successive clouds directly or integrates them into an Open3D TSDF volume.
-6. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
-7. `src/sim` normalizes simulator camera topics and launch settings for Isaac Sim and Gazebo runs.
-8. `src/utils/demo_video.py` can render a composite demo artifact from the same run, combining RGB, depth, trajectory, and output status.
+3. `src/semantics` optionally runs semantic segmentation and produces class masks or overlays for semantic-geometric fusion.
+4. `src/slam` consumes observations and emits `T_world_camera` from `disabled`, `dummy`, or `rtabmap` backends, while pose-graph bookkeeping records odometry and loop-closure edges.
+5. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
+6. `src/mapping` transforms those points into the world frame and either fuses successive clouds directly or integrates them into an Open3D TSDF volume.
+7. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
+8. `src/sim` normalizes simulator camera topics and launch settings for Isaac Sim and Gazebo runs.
+9. `src/utils/demo_video.py` can render a composite demo artifact from the same run, combining RGB, depth, trajectory, and output status.
 
 ## Gazebo Reference Flow
 
@@ -51,6 +54,8 @@ The cleanest real simulator path is:
 - `src/io/ros_image.py`: ROS2 image topic subscriber backed by `rclpy` and `cv_bridge`
 - `src/depth/estimator.py`: plugin-facing depth inference interface that loads the configured registered backend and applies optional bilateral, guided, and temporal refinement
 - `src/depth/models.py`: depth backend registry plus built-in MiDaS and Depth Anything plugins
+- `src/semantics/segmenter.py`: semantic segmentation entrypoint with optional YOLOv8 backend selection
+- `src/semantics/models.py`: semantic backend registry, prediction container, and overlay/color utilities
 - `src/slam/wrapper.py`: backend contract plus `disabled`, `dummy`, and `rtabmap` trajectory integrations
 - `src/slam/pose_graph.py`: pose-graph node and edge bookkeeping plus export helpers
 - `src/slam/loop_closure.py`: simple proximity-based loop-closure detection
@@ -65,7 +70,9 @@ The main run path can write:
 
 - RGB snapshot
 - depth visualization
+- semantic overlay snapshot
 - accumulated point cloud `.ply`
+- semantic point cloud `.ply`
 - trajectory array, JSON, CSV, and XY plot
 - pose-graph JSON and edge CSV
 - composite demo `.mp4`

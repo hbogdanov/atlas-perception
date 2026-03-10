@@ -16,6 +16,7 @@ from src.io.camera import create_frame_source
 from src.main import ensure_output_dir
 from src.mapping.pointcloud import PointCloudBuilder
 from src.ros2.nodes import AtlasRosBridge
+from src.semantics.segmenter import SemanticSegmenter
 from src.slam.wrapper import SlamWrapper
 from src.utils.config import deep_merge_dicts, load_config, validate_config
 from src.utils.demo_video import DemoVideoRecorder
@@ -135,6 +136,7 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
 
     source = create_frame_source(config["input"])
     depth_estimator = DepthEstimator(config["depth"])
+    semantic_segmenter = SemanticSegmenter(config.get("semantics"))
     slam = SlamWrapper(config["slam"])
     mapper = PointCloudBuilder(config["camera"], config["mapping"])
     ros_bridge = AtlasRosBridge(config["ros2"])
@@ -147,9 +149,11 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
             with Timer() as depth_timer:
                 depth_map = depth_estimator.predict(frame.image)
+            with Timer() as semantic_timer:
+                semantic_prediction = semantic_segmenter.predict(frame.image)
             with Timer() as mapping_timer:
                 pose = slam.update(frame.image, depth_map, frame.timestamp)
-                point_cloud = mapper.integrate(depth_map, frame.image, pose)
+                point_cloud = mapper.integrate(depth_map, frame.image, pose, semantics=semantic_prediction)
 
             ros_bridge.publish_depth(depth_map, frame.timestamp)
             ros_bridge.publish_pose(pose, frame.timestamp)
@@ -164,6 +168,7 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                 pose=pose,
                 metrics={
                     "depth_ms": depth_timer.result.milliseconds,
+                    "semantic_ms": semantic_timer.result.milliseconds,
                     "mapping_ms": mapping_timer.result.milliseconds,
                     "fps": (processed + 1) / elapsed,
                     "points": point_cloud.points.shape[0],
@@ -199,6 +204,8 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
 
     if config["output"].get("save_pointcloud", False):
         mapper.export_ply(output_dir / "frame_cloud.ply")
+        if point_cloud.semantic_labels is not None:
+            mapper.export_semantic_ply(output_dir / "semantic_cloud.ply")
         if str(config["mapping"].get("representation", "pointcloud")).lower() == "tsdf":
             mapper.export_mesh(output_dir / "tsdf_mesh.ply")
     if config["output"].get("save_trajectory", False):

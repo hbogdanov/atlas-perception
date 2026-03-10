@@ -49,7 +49,9 @@ If `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_po
 
 - `rgb_frame.png`
 - `depth_map.png`
+- `semantic_overlay.png` when semantics are enabled
 - `frame_cloud.ply`
+- `semantic_cloud.ply` when semantic labels are fused into the map
 - `trajectory.npy`
 - `trajectory.json`
 - `trajectory.csv`

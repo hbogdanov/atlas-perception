@@ -19,6 +19,7 @@ Use `python tools/run_isaac_demo.py` or `ros2 launch launch/isaac_atlas.launch.p
 - `/atlas/pose`: current trajectory or pose-estimate output with orientation derived from the 4x4 pose matrix
 - `/atlas/path`: accumulated trajectory published from the current SLAM backend state
 - `/atlas/pointcloud`: accumulated or frame-local colored point cloud projection with `header.stamp` and `header.frame_id`
+  When semantics are enabled, the point cloud rows also include a `label` field for the sampled semantic class id.
 
 ## Header Semantics
 

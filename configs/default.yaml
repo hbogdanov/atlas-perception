@@ -33,6 +33,14 @@ depth:
     temporal_fusion: false
     temporal_alpha: 0.7
 
+semantics:
+  enabled: false
+  backend: yolov8_seg
+  model: yolov8n-seg.pt
+  device: cpu
+  confidence: 0.25
+  iou: 0.7
+
 slam:
   mode: disabled
   frame_stride: 1
@@ -50,6 +58,7 @@ mapping:
   representation: pointcloud
   max_points: 100000
   stride: 4
+  semantic_color_fusion: true
   tsdf_voxel_length: 0.04
   tsdf_sdf_trunc: 0.08
   tsdf_depth_scale: 1.0
@@ -68,6 +77,7 @@ ros2:
 output:
   save_rgb_snapshot: false
   save_depth_snapshot: false
+  save_semantic_snapshot: false
   save_demo_video: false
   save_depth_video: false
   save_trajectory: true

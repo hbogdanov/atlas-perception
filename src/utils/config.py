@@ -10,6 +10,7 @@ VALID_INPUT_MODES = {"webcam", "video", "ros2"}
 VALID_DEPTH_OUTPUT_MODES = {"relative_normalized", "raw"}
 VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap"}
 VALID_MAPPING_REPRESENTATIONS = {"pointcloud", "tsdf"}
+VALID_SEMANTIC_BACKENDS = {"disabled", "yolov8_seg"}
 
 
 def _read_yaml(path: str | Path) -> dict:
@@ -59,6 +60,7 @@ def validate_config(config: dict) -> dict:
     depth_model = str(config["depth"].get("depth_model", config["depth"].get("model", "midas"))).lower()
     config["depth"]["depth_model"] = depth_model
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))
+    _validate_semantics(config.get("semantics", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
@@ -110,6 +112,24 @@ def _validate_depth_postprocess(postprocess: dict) -> None:
         alpha = float(postprocess["temporal_alpha"])
         if not 0.0 <= alpha <= 1.0:
             raise ValueError("depth.postprocess.temporal_alpha must be between 0 and 1 inclusive.")
+
+
+def _validate_semantics(semantics: dict) -> None:
+    if not semantics:
+        return
+    if not isinstance(semantics, dict):
+        raise ValueError("semantics must be a dictionary when provided.")
+    backend = str(semantics.get("backend", "disabled" if not semantics.get("enabled", False) else "yolov8_seg")).lower()
+    if backend not in VALID_SEMANTIC_BACKENDS:
+        raise ValueError(f"semantics.backend must be one of {sorted(VALID_SEMANTIC_BACKENDS)}, got {backend!r}.")
+    if "confidence" in semantics:
+        confidence = float(semantics["confidence"])
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError("semantics.confidence must be between 0 and 1 inclusive.")
+    if "iou" in semantics:
+        iou = float(semantics["iou"])
+        if not 0.0 <= iou <= 1.0:
+            raise ValueError("semantics.iou must be between 0 and 1 inclusive.")
 
 
 def load_config(path: str | Path, override_path: str | Path | None = None) -> dict:

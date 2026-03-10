@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from src.mapping.pointcloud import PointCloudBuilder
+from src.semantics.models import SemanticPrediction
 
 from src.mapping.occupancy import pointcloud_to_occupancy
 
@@ -103,5 +104,24 @@ def test_pointcloud_builder_ros_adapter_includes_color():
             return {"header": header, "fields": fields, "rows": rows}
 
     msg = builder.to_ros_pointcloud2({"frame_id": "atlas"}, FakePointCloud2Module, FakePointField)
-    assert [field.name for field in msg["fields"]] == ["x", "y", "z", "rgb"]
+    assert [field.name for field in msg["fields"]] == ["x", "y", "z", "rgb", "label"]
     assert msg["rows"][0][3] == 0xFF0000
+
+
+def test_pointcloud_builder_produces_semantic_labels_and_colors():
+    builder = PointCloudBuilder(
+        {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+        {"stride": 1, "max_points": 100, "semantic_color_fusion": True},
+    )
+    depth = np.ones((2, 2), dtype=np.float32)
+    rgb = np.zeros((2, 2, 3), dtype=np.uint8)
+    semantics = SemanticPrediction(
+        labels=np.array([[0, 1], [-1, 1]], dtype=np.int32),
+        class_names={0: "desk", 1: "monitor"},
+    )
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    point_cloud = builder.integrate(depth, rgb, pose, semantics=semantics)
+    assert point_cloud.semantic_labels is not None
+    assert point_cloud.semantic_labels.tolist() == [0, 1, -1, 1]
+    assert point_cloud.semantic_colors is not None
+    assert point_cloud.class_names == {0: "desk", 1: "monitor"}

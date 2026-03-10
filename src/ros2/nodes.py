@@ -130,12 +130,18 @@ class AtlasRosBridge:
         else:
             colors = getattr(point_cloud, "colors", np.empty((0, 3), dtype=np.float32))
             self.pointcloud_publisher.publish(
-                {"header": header, "points": point_cloud.points, "colors": colors}
+                {
+                    "header": header,
+                    "points": point_cloud.points,
+                    "colors": colors,
+                    "semantic_labels": getattr(point_cloud, "semantic_labels", None),
+                }
             )
         self.published["pointcloud"] = {
             "header": header,
             "points": point_cloud.points,
             "colors": getattr(point_cloud, "colors", np.empty((0, 3), dtype=np.float32)),
+            "semantic_labels": getattr(point_cloud, "semantic_labels", None),
         }
 
     def shutdown(self) -> None:

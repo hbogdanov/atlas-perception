@@ -19,6 +19,9 @@ except ImportError:  # pragma: no cover
 class PointCloudData:
     points: np.ndarray
     colors: np.ndarray
+    semantic_labels: np.ndarray | None = None
+    semantic_colors: np.ndarray | None = None
+    class_names: dict[int, str] | None = None
 
     def to_ros_pointcloud2(self, header, point_cloud2_module, point_field_type):
         fields = [
@@ -26,13 +29,34 @@ class PointCloudData:
             point_field_type(name="y", offset=4, datatype=point_field_type.FLOAT32, count=1),
             point_field_type(name="z", offset=8, datatype=point_field_type.FLOAT32, count=1),
             point_field_type(name="rgb", offset=12, datatype=point_field_type.UINT32, count=1),
+            point_field_type(name="label", offset=16, datatype=point_field_type.UINT32, count=1),
         ]
         rows = []
-        for point, color in zip(self.points.astype(np.float32), self.colors.astype(np.float32), strict=False):
+        semantic_labels = (
+            self.semantic_labels.astype(np.uint32)
+            if self.semantic_labels is not None
+            else np.full((self.points.shape[0],), np.uint32(0xFFFFFFFF), dtype=np.uint32)
+        )
+        point_colors = self.semantic_colors if self.semantic_colors is not None else self.colors
+        for point, color, label in zip(
+            self.points.astype(np.float32),
+            point_colors.astype(np.float32),
+            semantic_labels,
+            strict=False,
+        ):
             rgb_uint8 = np.clip(color * 255.0, 0, 255).astype(np.uint8)
             packed_rgb = int(rgb_uint8[0]) << 16 | int(rgb_uint8[1]) << 8 | int(rgb_uint8[2])
-            rows.append([float(point[0]), float(point[1]), float(point[2]), packed_rgb])
+            rows.append([float(point[0]), float(point[1]), float(point[2]), packed_rgb, int(label)])
         return point_cloud2_module.create_cloud(header, fields, rows)
+
+    def to_open3d(self, use_semantic_colors: bool = False):
+        _require_open3d()
+        cloud = o3d.geometry.PointCloud()
+        cloud.points = o3d.utility.Vector3dVector(self.points.astype(np.float64))
+        selected_colors = self.semantic_colors if use_semantic_colors and self.semantic_colors is not None else self.colors
+        if selected_colors.size:
+            cloud.colors = o3d.utility.Vector3dVector(selected_colors.astype(np.float64))
+        return cloud
 
 
 class MappingBackend(ABC):
@@ -58,7 +82,7 @@ class MappingBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate) -> PointCloudData:
+    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate, semantics=None) -> PointCloudData:
         raise NotImplementedError
 
     @abstractmethod
@@ -80,6 +104,9 @@ class PointCloudFusionBackend(MappingBackend):
         super().__init__(camera_config, mapping_config)
         self._points = np.empty((0, 3), dtype=np.float32)
         self._colors = np.empty((0, 3), dtype=np.float32)
+        self._semantic_labels = np.empty((0,), dtype=np.int32)
+        self._semantic_colors = np.empty((0, 3), dtype=np.float32)
+        self._class_names: dict[int, str] = {}
 
     @property
     def points(self) -> np.ndarray:
@@ -89,17 +116,32 @@ class PointCloudFusionBackend(MappingBackend):
     def colors(self) -> np.ndarray:
         return self._colors
 
-    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate) -> PointCloudData:
+    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate, semantics=None) -> PointCloudData:
         stride = int(self.mapping_config.get("stride", 4))
-        sample_points, sample_colors = depth_to_pointcloud(depth_map, rgb, self.camera_config, stride=stride)
+        semantic_fusion = bool(self.mapping_config.get("semantic_color_fusion", True))
+        color_image = semantics.colorize() if semantics is not None and semantic_fusion else rgb
+        sample_points, sample_colors = depth_to_pointcloud(depth_map, color_image, self.camera_config, stride=stride)
         transformed = transform_points(sample_points, pose.matrix)
         max_points = int(self.mapping_config.get("max_points", 100000))
         self._points = np.vstack([self._points, transformed])[-max_points:]
         self._colors = np.vstack([self._colors, sample_colors])[-max_points:]
+        if semantics is not None:
+            semantic_labels, semantic_colors = semantics.sample(stride=stride)
+            self._semantic_labels = np.hstack([self._semantic_labels, semantic_labels])[-max_points:]
+            self._semantic_colors = np.vstack([self._semantic_colors, semantic_colors])[-max_points:]
+            self._class_names.update(semantics.class_names)
         return self.data()
 
     def data(self) -> PointCloudData:
-        return PointCloudData(points=self._points.copy(), colors=self._colors.copy())
+        labels = self._semantic_labels.copy() if self._semantic_labels.size else None
+        semantic_colors = self._semantic_colors.copy() if self._semantic_colors.size else None
+        return PointCloudData(
+            points=self._points.copy(),
+            colors=self._colors.copy(),
+            semantic_labels=labels,
+            semantic_colors=semantic_colors,
+            class_names=self._class_names.copy(),
+        )
 
     def to_open3d(self):
         _require_open3d()
@@ -132,8 +174,10 @@ class TsdfFusionBackend(MappingBackend):
     def colors(self) -> np.ndarray:
         return self._colors
 
-    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate) -> PointCloudData:
-        rgb_u8 = np.ascontiguousarray(np.clip(rgb, 0, 255).astype(np.uint8))
+    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate, semantics=None) -> PointCloudData:
+        semantic_fusion = bool(self.mapping_config.get("semantic_color_fusion", True))
+        color_image = semantics.colorize() if semantics is not None and semantic_fusion else rgb
+        rgb_u8 = np.ascontiguousarray(np.clip(color_image, 0, 255).astype(np.uint8))
         depth_f32 = np.ascontiguousarray(np.clip(depth_map, 0.0, self._depth_trunc).astype(np.float32))
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
             o3d.geometry.Image(rgb_u8),
@@ -206,8 +250,8 @@ class PointCloudBuilder:
     def update_camera_intrinsics(self, intrinsics: dict | None) -> None:
         self.backend.update_camera_intrinsics(intrinsics)
 
-    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate) -> PointCloudData:
-        return self.backend.integrate(depth_map, rgb, pose)
+    def integrate(self, depth_map: np.ndarray, rgb: np.ndarray, pose: PoseEstimate, semantics=None) -> PointCloudData:
+        return self.backend.integrate(depth_map, rgb, pose, semantics=semantics)
 
     def data(self) -> PointCloudData:
         return self.backend.data()
@@ -220,6 +264,11 @@ class PointCloudBuilder:
 
     def export_ply(self, path: Path) -> None:
         self.backend.export_ply(path)
+
+    def export_semantic_ply(self, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        cloud = self.data().to_open3d(use_semantic_colors=True)
+        o3d.io.write_point_cloud(str(path), cloud)
 
     def export_mesh(self, path: Path) -> None:
         if not hasattr(self.backend, "export_mesh"):

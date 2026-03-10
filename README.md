@@ -1,6 +1,6 @@
 # Atlas Perception
 
-Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, point clouds, camera trajectories, and world-aligned maps for robotics pipelines.
+Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, semantic masks, point clouds, camera trajectories, and world-aligned maps for robotics pipelines.
 
 Additional documentation:
 
@@ -16,8 +16,10 @@ Additional documentation:
 - Camera ingestion from webcam, video files, or ROS2 image topics
 - ROS2 image-topic ingestion through `rclpy` and `cv_bridge`
 - Real monocular depth backends for MiDaS or Depth Anything
+- Optional YOLOv8 segmentation for semantic scene understanding
 - Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
 - Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
+- Semantic point-cloud fusion for class-aware 3D reconstruction
 - Explicit SLAM modes for `disabled`, `dummy`, and `rtabmap`
 - Pose-graph bookkeeping with simple loop-closure constraints for trajectory structure
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
@@ -33,6 +35,8 @@ camera input
    |
    v
 depth estimation
+   |
+   +--> semantic segmentation
    |
    +--> trajectory estimation (pose integration)
    |
@@ -53,6 +57,7 @@ Pipeline run on a TUM office sequence.
 Outputs:
 
 - monocular depth maps
+- semantic overlays
 - reconstructed point cloud
 - estimated camera trajectory
 
@@ -88,6 +93,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .[dev]
+pip install -e .[semantics]
 python -m src.main --config configs/default.yaml
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
 python tools/run_demo.py --dataset tum
@@ -97,6 +103,7 @@ python run_webcam_mapping.py
 The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
 The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simulator and ROS-specific override configs enable it explicitly.
 The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
+If you want YOLOv8 segmentation, install the optional semantics extra with `pip install -e .[semantics]`.
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 That preset uses looping video input plus `slam.mode: dummy` so the trajectory panel and trajectory plot visibly build over time.
@@ -155,6 +162,13 @@ Depth outputs are explicit:
 - `depth.postprocess.temporal_fusion: true` blends consecutive depth frames to reduce flicker in video or ROS streams
 
 Depth backends are registry-driven rather than hardcoded. The built-in plugins are currently `midas` and `depth_anything`, and new backends can be added by registering another depth backend class in [src/depth/models.py](src/depth/models.py).
+
+Semantic perception is optional:
+
+- `semantics.enabled: true` turns on per-frame semantic segmentation
+- `semantics.backend: yolov8_seg` uses YOLOv8 instance segmentation through `ultralytics`
+- `mapping.semantic_color_fusion: true` colors the fused map by semantic class instead of raw RGB
+- `output.save_semantic_snapshot: true` writes a class-colored overlay image for the first saved frame
 
 SLAM modes are explicit:
 
@@ -338,7 +352,9 @@ When snapshot and export flags are enabled, the main pipeline writes:
 
 - `rgb_frame.png`
 - `depth_map.png`
+- `semantic_overlay.png`
 - `frame_cloud.ply`
+- `semantic_cloud.ply`
 - `trajectory.npy`
 - `trajectory.json`
 - `trajectory.csv`
@@ -378,6 +394,7 @@ Example artifact directory:
 ## Known Limitations
 
 - Monocular depth is relative by default unless a calibrated backend/scaling path is added.
+- YOLOv8 semantics require the optional `ultralytics` dependency and suitable model weights.
 - `slam.mode: rtabmap` expects an external RTAB-Map ROS2 node to already be running and publishing poses.
 - Simulator bridges are lightweight runtime/launch adapters, not deep simulator-specific integrations.
 - A real simulator-backed demo video still requires a local Gazebo or Isaac Sim runtime; this repo can render the showcase asset once those feeds are available.

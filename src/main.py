@@ -11,6 +11,7 @@ from src.depth.visualize import colorize_depth
 from src.io.camera import create_frame_source
 from src.mapping.pointcloud import PointCloudBuilder
 from src.ros2.nodes import AtlasRosBridge
+from src.semantics.segmenter import SemanticSegmenter
 from src.sim.factory import create_sim_bridge
 from src.slam.wrapper import SlamWrapper
 from src.utils.config import load_config
@@ -40,13 +41,16 @@ def ensure_output_dir(path_str: str) -> Path:
     return output_dir
 
 
-def save_demo_snapshots(output_dir: Path, rgb, depth_map, config: dict, saved: set[str]) -> None:
+def save_demo_snapshots(output_dir: Path, rgb, depth_map, semantics, config: dict, saved: set[str]) -> None:
     if config["output"].get("save_rgb_snapshot", False) and "rgb" not in saved:
         cv2.imwrite(str(output_dir / "rgb_frame.png"), rgb)
         saved.add("rgb")
     if config["output"].get("save_depth_snapshot", False) and "depth" not in saved:
         cv2.imwrite(str(output_dir / "depth_map.png"), colorize_depth(depth_map))
         saved.add("depth")
+    if config["output"].get("save_semantic_snapshot", False) and "semantic" not in saved and semantics is not None:
+        cv2.imwrite(str(output_dir / "semantic_overlay.png"), semantics.overlay(rgb))
+        saved.add("semantic")
 
 
 def create_demo_video_recorder(config: dict, output_dir: Path) -> DemoVideoRecorder | None:
@@ -74,6 +78,7 @@ def run() -> None:
     try:
         source = create_frame_source(config["input"])
         depth_estimator = DepthEstimator(config["depth"])
+        semantic_segmenter = SemanticSegmenter(config.get("semantics"))
         slam = SlamWrapper(config["slam"])
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
         ros_bridge = AtlasRosBridge(config["ros2"])
@@ -87,6 +92,7 @@ def run() -> None:
     saved_snapshots: set[str] = set()
     start_time = perf_counter()
     depth_times_ms: list[float] = []
+    semantic_times_ms: list[float] = []
     mapping_times_ms: list[float] = []
     latest_point_count = 0
     try:
@@ -96,16 +102,18 @@ def run() -> None:
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
             with Timer() as depth_timer:
                 depth_map = depth_estimator.predict(rgb)
+            with Timer() as semantic_timer:
+                semantic_prediction = semantic_segmenter.predict(rgb)
             pose = slam.update(rgb, depth_map, timestamp)
             with Timer() as mapping_timer:
-                point_cloud = mapper.integrate(depth_map, rgb, pose)
+                point_cloud = mapper.integrate(depth_map, rgb, pose, semantics=semantic_prediction)
 
             ros_bridge.publish_depth(depth_map, timestamp)
             ros_bridge.publish_pose(pose, timestamp)
             ros_bridge.publish_trajectory(slam.trajectory, timestamp)
             ros_bridge.publish_pointcloud(point_cloud, timestamp)
 
-            save_demo_snapshots(output_dir, rgb, depth_map, config, saved_snapshots)
+            save_demo_snapshots(output_dir, rgb, depth_map, semantic_prediction, config, saved_snapshots)
             if demo_video is not None:
                 demo_video.write(
                     rgb=rgb,
@@ -114,6 +122,7 @@ def run() -> None:
                     pose=pose,
                     metrics={
                         "depth_ms": depth_timer.result.milliseconds,
+                        "semantic_ms": semantic_timer.result.milliseconds,
                         "mapping_ms": mapping_timer.result.milliseconds,
                         "fps": processed / max(perf_counter() - start_time, 1e-6),
                         "points": point_cloud.points.shape[0],
@@ -134,13 +143,15 @@ def run() -> None:
 
             processed += 1
             depth_times_ms.append(depth_timer.result.milliseconds)
+            semantic_times_ms.append(semantic_timer.result.milliseconds)
             mapping_times_ms.append(mapping_timer.result.milliseconds)
             latest_point_count = point_cloud.points.shape[0]
             elapsed = max(perf_counter() - start_time, 1e-6)
             LOGGER.info(
-                "frame=%s depth_ms=%.2f mapping_ms=%.2f fps=%.2f points=%s",
+                "frame=%s depth_ms=%.2f semantic_ms=%.2f mapping_ms=%.2f fps=%.2f points=%s",
                 processed,
                 depth_timer.result.milliseconds,
+                semantic_timer.result.milliseconds,
                 mapping_timer.result.milliseconds,
                 processed / elapsed,
                 point_cloud.points.shape[0],
@@ -153,6 +164,8 @@ def run() -> None:
     if config["output"].get("save_pointcloud", False):
         try:
             mapper.export_ply(output_dir / "frame_cloud.ply")
+            if point_cloud.semantic_labels is not None:
+                mapper.export_semantic_ply(output_dir / "semantic_cloud.ply")
             if str(config["mapping"].get("representation", "pointcloud")).lower() == "tsdf":
                 mapper.export_mesh(output_dir / "tsdf_mesh.ply")
         except Exception as exc:
@@ -168,8 +181,9 @@ def run() -> None:
     total_elapsed = max(perf_counter() - start_time, 1e-6)
     if processed:
         LOGGER.info(
-            "summary avg_depth_ms=%.2f avg_mapping_ms=%.2f avg_fps=%.2f points=%s",
+            "summary avg_depth_ms=%.2f avg_semantic_ms=%.2f avg_mapping_ms=%.2f avg_fps=%.2f points=%s",
             sum(depth_times_ms) / len(depth_times_ms),
+            sum(semantic_times_ms) / len(semantic_times_ms),
             sum(mapping_times_ms) / len(mapping_times_ms),
             processed / total_elapsed,
             latest_point_count,
