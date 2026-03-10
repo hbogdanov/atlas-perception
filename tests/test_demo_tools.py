@@ -13,7 +13,7 @@ def test_build_demo_command_for_tum_uses_expected_configs():
     assert command[1:4] == ["-m", "src.main", "--config"]
     assert "configs/default.yaml" in command
     assert "configs/tum_demo.yaml" in command
-    assert command[-1] == "120"
+    assert command[-1] == "180"
 
 
 def test_export_demo_gif_creates_output(tmp_path: Path):

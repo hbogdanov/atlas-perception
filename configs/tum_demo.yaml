@@ -5,6 +5,12 @@ input:
 
 slam:
   mode: dummy
+  linear_step: 0.05
+  lateral_amplitude: 0.28
+  lateral_frequency: 0.11
+  vertical_amplitude: 0.015
+  vertical_frequency: 0.06
+  yaw_rate: 0.025
 
 ros2:
   enabled: false

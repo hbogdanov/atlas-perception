@@ -103,7 +103,7 @@ That wrapper runs the TUM preset through `src.main` and exports:
 - `demo/gifs/tum_demo.gif`
 - `demo/screenshots/tum_trajectory_plot.png`
 
-The preset loops the short TUM source clip and uses `slam.mode: dummy`, so the exported trajectory visibly grows instead of staying fixed.
+The preset loops the short TUM source clip, runs a longer showcase window, and uses a curved `slam.mode: dummy` motion profile, so the exported trajectory visibly grows instead of staying fixed or collapsing into a straight line.
 
 Live webcam showcase:
 

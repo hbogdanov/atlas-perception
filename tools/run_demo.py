@@ -16,13 +16,13 @@ DEMO_PRESETS = {
     "tum": {
         "config": "configs/default.yaml",
         "override_config": "configs/tum_demo.yaml",
-        "max_frames": 120,
+        "max_frames": 180,
         "video_path": "demo/videos/tum_demo.mp4",
         "gif_path": "demo/gifs/tum_demo.gif",
         "trajectory_plot": "data/outputs/tum_demo_eval/trajectory_plot.png",
         "trajectory_screenshot": "demo/screenshots/tum_trajectory_plot.png",
         "gif_fps": 6.0,
-        "gif_max_frames": 90,
+        "gif_max_frames": 120,
         "gif_width": 960,
     }
 }

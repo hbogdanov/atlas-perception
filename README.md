@@ -107,7 +107,7 @@ The main pipeline can also save a demo-ready artifact set directly via `output.s
 If you want YOLOv8 segmentation, install the optional semantics extra with `pip install -e .[semantics]`.
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
-That preset uses looping video input plus `slam.mode: dummy` so the trajectory panel and trajectory plot visibly build over time.
+That preset uses looping video input plus a curved synthetic `slam.mode: dummy` motion profile so the trajectory panel and trajectory plot visibly build over time instead of staying on a straight line.
 For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, trajectory, and status, and `--show-cloud` adds a live Open3D point-cloud window.
 For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
 
