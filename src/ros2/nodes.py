@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover
 
 try:
     import rclpy
+    from builtin_interfaces.msg import Time as RosTime
     from cv_bridge import CvBridge
     from geometry_msgs.msg import PoseStamped
     from nav_msgs.msg import Path as RosPath
@@ -21,7 +22,6 @@ try:
     from sensor_msgs.msg import Image, PointCloud2, PointField
     from sensor_msgs_py import point_cloud2
     from std_msgs.msg import Header
-    from builtin_interfaces.msg import Time as RosTime
 except ImportError:  # pragma: no cover
     rclpy = None
     CvBridge = None

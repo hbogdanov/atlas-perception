@@ -7,4 +7,3 @@ class TopicSubscriber:
 
     def receive(self):
         return None
-

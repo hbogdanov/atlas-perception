@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-
 _TMP_ROOT = Path(__file__).resolve().parents[1] / "test-tmp" / "cases"
 
 

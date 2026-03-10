@@ -1,5 +1,3 @@
-import numpy as np
-
 from src.io.ros_image import RosImageSubscriber
 
 

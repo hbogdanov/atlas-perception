@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
@@ -63,8 +63,12 @@ class Trajectory:
             cv2.line(canvas, start, end, (40, 120, 220), 2)
         cv2.circle(canvas, projected[0], 6, (0, 180, 0), -1)
         cv2.circle(canvas, projected[-1], 6, (0, 0, 220), -1)
-        cv2.putText(canvas, "start", (projected[0][0] + 8, projected[0][1] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 120, 0), 1)
-        cv2.putText(canvas, "end", (projected[-1][0] + 8, projected[-1][1] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 160), 1)
+        cv2.putText(
+            canvas, "start", (projected[0][0] + 8, projected[0][1] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 120, 0), 1
+        )
+        cv2.putText(
+            canvas, "end", (projected[-1][0] + 8, projected[-1][1] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 160), 1
+        )
         cv2.putText(canvas, "XY trajectory", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (20, 20, 20), 2)
         return canvas
 

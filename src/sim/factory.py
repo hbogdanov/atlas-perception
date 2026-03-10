@@ -13,4 +13,3 @@ def create_sim_bridge(config: dict | None):
     if platform == "gazebo":
         return GazeboBridge(config)
     raise ValueError(f"Unsupported simulator platform: {platform}")
-

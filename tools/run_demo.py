@@ -12,7 +12,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from tools.export_demo_gif import export_demo_gif
 
-
 DEMO_PRESETS = {
     "tum": {
         "config": "configs/default.yaml",

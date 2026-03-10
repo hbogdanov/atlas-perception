@@ -48,8 +48,7 @@ class DepthEstimator:
         if self.output_mode == "raw":
             return depth.astype(np.float32)
         raise ValueError(
-            f"Unsupported depth output_mode: {self.output_mode}. "
-            "Expected one of: relative_normalized, raw."
+            f"Unsupported depth output_mode: {self.output_mode}. " "Expected one of: relative_normalized, raw."
         )
 
     def _postprocess_depth(self, depth: np.ndarray, image: np.ndarray) -> np.ndarray:

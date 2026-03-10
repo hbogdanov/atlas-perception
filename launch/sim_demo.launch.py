@@ -7,9 +7,10 @@ from pathlib import Path
 import yaml
 
 try:
-    from launch import LaunchDescription
     from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction
     from launch.substitutions import LaunchConfiguration
+
+    from launch import LaunchDescription
 except ImportError:  # pragma: no cover
     LaunchDescription = None
     DeclareLaunchArgument = None

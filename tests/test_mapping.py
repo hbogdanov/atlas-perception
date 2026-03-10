@@ -1,11 +1,11 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 import pytest
 
+from src.mapping.occupancy import pointcloud_to_occupancy
 from src.mapping.pointcloud import PointCloudBuilder
 from src.semantics.models import SemanticPrediction
-
-from src.mapping.occupancy import pointcloud_to_occupancy
 
 
 def test_pointcloud_to_occupancy_quantizes_points():

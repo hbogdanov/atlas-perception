@@ -17,7 +17,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate an Atlas trajectory against TUM-format ground truth.")
     parser.add_argument("--estimated-json", required=True, help="Path to Atlas trajectory.json export.")
     parser.add_argument("--groundtruth-tum", required=True, help="Path to TUM-format groundtruth text file.")
-    parser.add_argument("--max-timestamp-diff", type=float, default=0.02, help="Maximum timestamp association delta in seconds.")
+    parser.add_argument(
+        "--max-timestamp-diff", type=float, default=0.02, help="Maximum timestamp association delta in seconds."
+    )
     parser.add_argument(
         "--output-json",
         default="data/outputs/trajectory_eval/trajectory_eval.json",

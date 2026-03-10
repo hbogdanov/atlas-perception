@@ -36,7 +36,9 @@ class TrajectoryMetrics:
 def load_atlas_trajectory_json(path: str | Path) -> list[TrajectoryPose]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     poses = [
-        TrajectoryPose(timestamp=float(entry["timestamp"]), matrix=np.asarray(entry["T_world_camera"], dtype=np.float32))
+        TrajectoryPose(
+            timestamp=float(entry["timestamp"]), matrix=np.asarray(entry["T_world_camera"], dtype=np.float32)
+        )
         for entry in payload
         if bool(entry.get("tracking_ok", True))
     ]

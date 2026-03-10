@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 try:
-    from launch import LaunchDescription
     from launch.actions import DeclareLaunchArgument, ExecuteProcess
     from launch.substitutions import LaunchConfiguration
+
+    from launch import LaunchDescription
 except ImportError:  # pragma: no cover
     LaunchDescription = None
     DeclareLaunchArgument = None

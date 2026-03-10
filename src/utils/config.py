@@ -54,9 +54,7 @@ def validate_config(config: dict) -> dict:
 
     output_mode = str(config["depth"].get("output_mode", "")).lower()
     if output_mode not in VALID_DEPTH_OUTPUT_MODES:
-        raise ValueError(
-            f"depth.output_mode must be one of {sorted(VALID_DEPTH_OUTPUT_MODES)}, got {output_mode!r}."
-        )
+        raise ValueError(f"depth.output_mode must be one of {sorted(VALID_DEPTH_OUTPUT_MODES)}, got {output_mode!r}.")
     depth_model = str(config["depth"].get("depth_model", config["depth"].get("model", "midas"))).lower()
     config["depth"]["depth_model"] = depth_model
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))

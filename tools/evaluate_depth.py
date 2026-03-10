@@ -21,11 +21,15 @@ from src.utils.config import load_config
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Quantitatively evaluate monocular depth on a TUM RGB-D sequence.")
-    parser.add_argument("--dataset-root", required=True, help="Path to the TUM sequence root containing rgb/ and depth/.")
+    parser.add_argument(
+        "--dataset-root", required=True, help="Path to the TUM sequence root containing rgb/ and depth/."
+    )
     parser.add_argument("--config", default="configs/default.yaml", help="Base config path.")
     parser.add_argument("--override-config", default=None, help="Optional override config path.")
     parser.add_argument("--limit", type=int, default=0, help="Maximum number of RGB/depth pairs to evaluate.")
-    parser.add_argument("--output-json", default="data/outputs/depth_eval/tum_depth_eval.json", help="Summary JSON path.")
+    parser.add_argument(
+        "--output-json", default="data/outputs/depth_eval/tum_depth_eval.json", help="Summary JSON path."
+    )
     parser.add_argument("--output-csv", default="data/outputs/depth_eval/tum_depth_eval.csv", help="Per-run CSV path.")
     return parser.parse_args()
 
@@ -133,9 +137,10 @@ def main() -> None:
     write_outputs(summary, Path(args.output_json), Path(args.output_csv))
 
     print(
-        "Model={model} AbsRel={abs_rel:.4f} RMSE={rmse:.4f} delta1={delta1:.4f} FPS={fps:.2f} Frames={frames_evaluated}".format(
-            **summary
-        )
+        (
+            "Model={model} AbsRel={abs_rel:.4f} RMSE={rmse:.4f} "
+            "delta1={delta1:.4f} FPS={fps:.2f} Frames={frames_evaluated}"
+        ).format(**summary)
     )
     print(f"JSON: {args.output_json}")
     print(f"CSV: {args.output_csv}")

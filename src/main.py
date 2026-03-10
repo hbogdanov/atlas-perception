@@ -19,7 +19,6 @@ from src.utils.demo_video import DemoVideoRecorder
 from src.utils.logger import get_logger
 from src.utils.perf import Timer
 
-
 LOGGER = get_logger(__name__)
 
 

@@ -53,7 +53,9 @@ class PointCloudData:
         _require_open3d()
         cloud = o3d.geometry.PointCloud()
         cloud.points = o3d.utility.Vector3dVector(self.points.astype(np.float64))
-        selected_colors = self.semantic_colors if use_semantic_colors and self.semantic_colors is not None else self.colors
+        selected_colors = (
+            self.semantic_colors if use_semantic_colors and self.semantic_colors is not None else self.colors
+        )
         if selected_colors.size:
             cloud.colors = o3d.utility.Vector3dVector(selected_colors.astype(np.float64))
         return cloud
@@ -285,4 +287,6 @@ class PointCloudBuilder:
 
 def _require_open3d() -> None:
     if o3d is None:
-        raise RuntimeError("Open3D is required for TSDF or point cloud export. Install dependencies from requirements.txt.")
+        raise RuntimeError(
+            "Open3D is required for TSDF or point cloud export. Install dependencies from requirements.txt."
+        )
