@@ -5,6 +5,7 @@ import numpy as np
 
 from tools.export_demo_gif import export_demo_gif
 from tools.run_demo import build_demo_command
+from tools.run_webcam_mapping import build_runtime_config
 
 
 def test_build_demo_command_for_tum_uses_expected_configs():
@@ -31,3 +32,31 @@ def test_export_demo_gif_creates_output(tmp_path: Path):
     assert out == gif_path
     assert gif_path.exists()
     assert gif_path.stat().st_size > 0
+
+
+def test_build_webcam_runtime_config_applies_live_overrides():
+    args = type(
+        "Args",
+        (),
+        {
+            "config": "configs/default.yaml",
+            "override_config": "configs/webcam_mapping.yaml",
+            "camera_index": 2,
+            "width": 800,
+            "height": 600,
+            "max_frames": 0,
+            "slam_mode": "dummy",
+            "representation": "tsdf",
+            "show_cloud": False,
+            "save_artifacts": True,
+        },
+    )()
+    config = build_runtime_config(args)
+    assert config["input"]["mode"] == "webcam"
+    assert config["input"]["source"] == 2
+    assert config["input"]["width"] == 800
+    assert config["input"]["height"] == 600
+    assert config["slam"]["mode"] == "dummy"
+    assert config["mapping"]["representation"] == "tsdf"
+    assert config["output"]["save_pointcloud"] is True
+    assert config["output"]["save_trajectory"] is True

@@ -103,6 +103,19 @@ That wrapper runs the TUM preset through `src.main` and exports:
 
 The preset loops the short TUM source clip and uses `slam.mode: dummy`, so the exported trajectory visibly grows instead of staying fixed.
 
+Live webcam showcase:
+
+```bash
+python run_webcam_mapping.py --show-cloud
+```
+
+That live entrypoint opens:
+
+- a real-time RGB + depth + trajectory dashboard
+- an optional Open3D point-cloud window
+
+Use `--save-artifacts` if you want the live run to export `frame_cloud.ply` and trajectory files on exit.
+
 Quantitative depth evaluation can be run separately on a TUM RGB-D folder:
 
 ```bash

@@ -23,6 +23,7 @@ Additional documentation:
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
 - Composite demo video export showing feed, depth, trajectory, and published-output status
+- One-command live webcam mapping entrypoint with a real-time depth dashboard
 
 ## Pipeline
 
@@ -89,6 +90,7 @@ pip install -e .[dev]
 python -m src.main --config configs/default.yaml
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
 python tools/run_demo.py --dataset tum
+python run_webcam_mapping.py
 ```
 
 The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
@@ -97,6 +99,31 @@ The main pipeline can also save a demo-ready artifact set directly via `output.s
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 That preset uses looping video input plus `slam.mode: dummy` so the trajectory panel and trajectory plot visibly build over time.
+For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, trajectory, and status, and `--show-cloud` adds a live Open3D point-cloud window.
+
+## Live Webcam Mapping
+
+Run:
+
+```bash
+python run_webcam_mapping.py
+```
+
+This starts a live webcam pipeline with:
+
+- RGB feed
+- monocular depth estimation
+- evolving point cloud
+- trajectory/status dashboard
+
+Useful flags:
+
+- `--show-cloud` opens a live Open3D point-cloud window
+- `--save-artifacts` writes `frame_cloud.ply` and trajectory exports on exit
+- `--representation tsdf` switches the live mapper to TSDF fusion
+- `--slam-mode dummy` enables synthetic pose integration for a visibly moving accumulated map
+
+Press `q` or `Esc` to quit.
 
 ## Configuration
 
@@ -105,6 +132,7 @@ The configs are intentionally split by purpose:
 
 - `configs/default.yaml`: safe baseline with ROS2 off and SLAM disabled
 - `configs/tum_demo.yaml`: looping TUM showcase run with dummy pose integration and GIF/video export
+- `configs/webcam_mapping.yaml`: live webcam mapping preset for local demos
 - `configs/tum_main_eval.yaml`: reproducible TUM artifact evaluation run
 - `configs/gazebo_demo.yaml`: Gazebo demo with dummy motion for world-frame accumulation testing
 - `configs/gazebo_rtabmap_demo.yaml`: Gazebo demo that consumes external RTAB-Map poses

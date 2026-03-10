@@ -1,0 +1,25 @@
+input:
+  mode: webcam
+  source: 0
+  width: 640
+  height: 480
+  fps: 30
+
+slam:
+  mode: disabled
+  pose_graph:
+    enabled: false
+
+mapping:
+  representation: pointcloud
+  stride: 6
+  max_points: 60000
+
+output:
+  save_rgb_snapshot: false
+  save_depth_snapshot: false
+  save_demo_video: false
+  save_trajectory: false
+  save_pointcloud: true
+  output_dir: data/outputs/webcam_mapping
+  visualize: false
