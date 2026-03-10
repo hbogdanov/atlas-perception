@@ -1,6 +1,6 @@
 # Atlas Perception
 
-Atlas Perception is a ROS2-compatible robotics perception pipeline that converts camera streams into depth estimates and spatial outputs for downstream navigation in simulated environments.
+Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, point clouds, camera trajectories, and world-aligned maps for robotics pipelines.
 
 Additional documentation:
 
@@ -15,7 +15,7 @@ Additional documentation:
 - Camera ingestion from webcam, video files, or ROS2 image topics
 - ROS2 image-topic ingestion through `rclpy` and `cv_bridge`
 - Real monocular depth backends for MiDaS or Depth Anything
-- Depth + trajectory hooks with future SLAM backend integration
+- Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
 - Explicit SLAM modes for `disabled`, `dummy`, and `rtabmap`
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
@@ -30,7 +30,7 @@ camera input
    v
 depth estimation
    |
-   +--> trajectory / future SLAM backend
+   +--> trajectory estimation (pose integration)
    |
    v
 point cloud projection + transform
@@ -42,11 +42,21 @@ map / cloud accumulation
 ROS2 topic publishing
 ```
 
-## Visual Results
+## Example Output
 
-Atlas already produces the core perception outputs end to end:
+Pipeline run on a TUM office sequence.
 
-`RGB frame -> depth map -> point cloud / accumulated map`
+Outputs:
+
+- monocular depth maps
+- reconstructed point cloud
+- estimated camera trajectory
+
+`RGB frame -> depth map -> point cloud -> trajectory / map`
+
+Animated demo:
+
+![TUM demo GIF](demo/gifs/tum_demo.gif)
 
 RGB input:
 
@@ -60,6 +70,10 @@ Projected point cloud:
 
 ![TUM point cloud](demo/screenshots/pointcloud_vis.png)
 
+Trajectory plot:
+
+![Trajectory plot](data/outputs/tum_main_eval/trajectory_plot.png)
+
 ## Quickstart
 
 ```bash
@@ -72,12 +86,14 @@ pip install -r requirements.txt
 pip install -e .[dev]
 python -m src.main --config configs/default.yaml
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
+python tools/run_demo.py --dataset tum
 ```
 
 The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
 The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simulator and ROS-specific override configs enable it explicitly.
 The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
+For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 
 ## Configuration
 
@@ -191,20 +207,6 @@ Current generated demo artifacts:
 - [tum_depth_map.png](demo/screenshots/tum_depth_map.png)
 - [pointcloud_vis.png](demo/screenshots/pointcloud_vis.png)
 - [frame_cloud.ply](data/outputs/tum_demo/frame_cloud.ply)
-
-## Demo Visuals
-
-Projected point cloud:
-
-![TUM point cloud](demo/screenshots/pointcloud_vis.png)
-
-RGB input:
-
-![TUM RGB frame](demo/screenshots/tum_rgb_frame.png)
-
-Estimated depth:
-
-![TUM depth map](demo/screenshots/tum_depth_map.png)
 
 Recommended first dataset: TUM RGB-D `fr1/xyz`. The official TUM page recommends the `xyz` series for first experiments, and `fr1/xyz` is the smallest of the suggested starter sequences at about `0.47GB`. Sources: [download page](https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download), [dataset overview](https://cvg.cit.tum.de/data/datasets/rgbd-dataset).
 

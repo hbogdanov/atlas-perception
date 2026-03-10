@@ -1,6 +1,6 @@
 # Architecture
 
-Atlas Perception is organized as a modular perception pipeline with explicit boundaries between sensor input, scene understanding, trajectory hooks, spatial mapping, and ROS2 integration.
+Atlas Perception is organized as a modular perception pipeline with explicit boundaries between sensor input, scene understanding, trajectory estimation, spatial mapping, and ROS2 integration.
 
 ## Pipeline
 
@@ -10,7 +10,7 @@ Camera input
       v
 Depth Estimation
       |
-      +--> (Optional) Trajectory / Future SLAM Backend
+      +--> Trajectory Estimation / Pose Integration
       |
       v
 Point Cloud Projection + Transform

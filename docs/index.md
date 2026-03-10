@@ -31,6 +31,7 @@ Depending on config flags, Atlas can write:
 - `trajectory.csv`
 - `trajectory_plot.png`
 - `atlas_demo.mp4`
+- `tum_demo.gif`
 - `tum_depth_eval.json`
 - `tum_depth_eval.csv`
 - `trajectory_eval.json`

@@ -76,6 +76,17 @@ Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
 - `data/outputs/tum_main_eval/trajectory_plot.png`
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 
+One-command demo wrapper:
+
+```bash
+python tools/run_demo.py --dataset tum
+```
+
+That wrapper runs the TUM preset through `src.main` and exports:
+
+- `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
+- `demo/gifs/tum_demo.gif`
+
 Quantitative depth evaluation can be run separately on a TUM RGB-D folder:
 
 ```bash

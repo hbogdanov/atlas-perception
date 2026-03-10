@@ -22,6 +22,9 @@ demo/screenshots/*
 !demo/screenshots/tum_rgb_frame.png
 !demo/screenshots/tum_depth_map.png
 !demo/screenshots/pointcloud_vis.png
+demo/gifs/*
+!demo/gifs/.gitkeep
+!demo/gifs/tum_demo.gif
 demo/videos/*
 !demo/videos/.gitkeep
 data/samples/*
