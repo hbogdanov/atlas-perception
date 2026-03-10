@@ -38,6 +38,7 @@ Atlas currently documents and supports:
 
 - camera ingestion from webcam, video, and ROS2 image topics
 - MiDaS and Depth Anything depth backends
+- quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - colored point cloud generation and `.ply` export
 - ROS2 publishing for depth, pose, path, and point cloud outputs
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`

@@ -76,6 +76,26 @@ Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
 - `data/outputs/tum_main_eval/trajectory_plot.png`
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 
+Quantitative depth evaluation can be run separately on a TUM RGB-D folder:
+
+```bash
+python tools/evaluate_depth.py --dataset-root data/samples/tum_freiburg1_xyz --limit 30
+```
+
+That evaluator writes:
+
+- `data/outputs/depth_eval/tum_depth_eval.json`
+- `data/outputs/depth_eval/tum_depth_eval.csv`
+
+The reported summary includes:
+
+- `AbsRel`
+- `RMSE`
+- `delta1`
+- `FPS`
+
+For relative monocular backends, the evaluator median-aligns each predicted depth map to the valid ground-truth pixels before computing those scores.
+
 Observed runtime summary from that run:
 
 - `avg_depth_ms=80.79`

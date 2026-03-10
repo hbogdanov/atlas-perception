@@ -208,6 +208,26 @@ Full functionality evaluation on the TUM-derived 30-frame video clip used:
 python -m src.main --config configs/default.yaml --override-config configs/tum_main_eval.yaml --max-frames 30
 ```
 
+Quantitative depth evaluation on a TUM RGB-D sequence:
+
+```bash
+python tools/evaluate_depth.py --dataset-root data/samples/tum_freiburg1_xyz --limit 30
+```
+
+The evaluator writes both JSON and CSV summaries with:
+
+- `AbsRel`
+- `RMSE`
+- `delta1`
+- `FPS`
+
+Example results table format:
+
+| Model | AbsRel | RMSE | FPS |
+| --- | ---: | ---: | ---: |
+| MiDaS | 0.17 | 0.52 | 22 |
+| Depth Anything | 0.13 | 0.41 | 18 |
+
 ## Runtime Metrics
 
 Measured from one real 30-frame TUM `fr1/xyz` video-derived run through `src.main`:
@@ -216,6 +236,8 @@ Measured from one real 30-frame TUM `fr1/xyz` video-derived run through `src.mai
 - average mapping / projection: `3.18 ms`
 - average throughput: `11.45 FPS`
 - accumulated point count: `100000`
+
+For monocular backends, Atlas aligns each predicted depth map to the ground-truth median scale before computing metric-depth scores. That keeps `AbsRel`, `RMSE`, and `delta1` meaningful for relative-depth models without claiming native metric calibration.
 
 ## Expected Outputs
 
@@ -230,6 +252,11 @@ When snapshot and export flags are enabled, the main pipeline writes:
 - `trajectory_plot.png`
 - `atlas_demo.mp4`
 
+The quantitative evaluator writes:
+
+- `tum_depth_eval.json`
+- `tum_depth_eval.csv`
+
 Example artifact directory:
 
 - `data/outputs/tum_main_eval/rgb_frame.png`
@@ -240,6 +267,8 @@ Example artifact directory:
 - `data/outputs/tum_main_eval/trajectory.csv`
 - `data/outputs/tum_main_eval/trajectory_plot.png`
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
+- `data/outputs/depth_eval/tum_depth_eval.json`
+- `data/outputs/depth_eval/tum_depth_eval.csv`
 
 ## Known Limitations
 
