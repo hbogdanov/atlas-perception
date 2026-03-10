@@ -11,6 +11,8 @@ def test_load_config():
     assert config["ros2"]["depth_topic"] == "/atlas/depth"
     assert config["camera"]["fx"] == 525.0
     assert config["output"]["save_rgb_snapshot"] is False
+    assert config["depth"]["depth_model"] == "midas"
+    assert config["mapping"]["representation"] == "pointcloud"
 
 
 def test_deep_merge_dicts_recursively_overrides_nested_values():
@@ -113,6 +115,43 @@ def test_validate_config_rejects_non_positive_mapping_settings():
                 "depth": {"output_mode": "raw"},
                 "slam": {"mode": "dummy"},
                 "mapping": {"stride": 1, "max_points": 0},
+                "ros2": {},
+                "output": {},
+            }
+        )
+
+
+def test_validate_config_rejects_unknown_mapping_representation():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw"},
+                "slam": {"mode": "dummy"},
+                "mapping": {"representation": "volsurf", "stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
+
+
+def test_validate_config_rejects_invalid_tsdf_settings():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw"},
+                "slam": {"mode": "dummy"},
+                "mapping": {
+                    "representation": "tsdf",
+                    "stride": 1,
+                    "max_points": 10,
+                    "tsdf_voxel_length": 0.0,
+                    "tsdf_sdf_trunc": 0.1,
+                    "tsdf_depth_trunc": 4.0,
+                },
                 "ros2": {},
                 "output": {},
             }

@@ -6,6 +6,7 @@ Use this checklist for an end-to-end run artifact set:
 2. Save one rendered depth output image from the same sequence.
 3. Export the accumulated point cloud to `data/outputs/frame_cloud.ply`.
 4. Open the cloud in Open3D or RViz and capture a screenshot.
+5. Export trajectory and pose-graph artifacts for pose-aware mapping runs.
 
 Suggested layout:
 
@@ -49,6 +50,16 @@ If `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_po
 - `rgb_frame.png`
 - `depth_map.png`
 - `frame_cloud.ply`
+- `trajectory.npy`
+- `trajectory.json`
+- `trajectory.csv`
+- `trajectory_plot.png`
+- `pose_graph.json`
+- `pose_graph_edges.csv`
+
+If `mapping.representation: tsdf`, the pipeline also writes:
+
+- `tsdf_mesh.ply`
 
 With the default config, the saved depth output is post-processed before export. The current cleanup stages are:
 
@@ -74,6 +85,8 @@ Latest evaluated full-pipeline run on a TUM-derived 30-frame clip produced:
 - `data/outputs/tum_main_eval/trajectory.json`
 - `data/outputs/tum_main_eval/trajectory.csv`
 - `data/outputs/tum_main_eval/trajectory_plot.png`
+- `data/outputs/tum_main_eval/pose_graph.json`
+- `data/outputs/tum_main_eval/pose_graph_edges.csv`
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 
 One-command demo wrapper:

@@ -9,6 +9,7 @@ REQUIRED_SECTIONS = ("input", "camera", "depth", "slam", "mapping", "ros2", "out
 VALID_INPUT_MODES = {"webcam", "video", "ros2"}
 VALID_DEPTH_OUTPUT_MODES = {"relative_normalized", "raw"}
 VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap"}
+VALID_MAPPING_REPRESENTATIONS = {"pointcloud", "tsdf"}
 
 
 def _read_yaml(path: str | Path) -> dict:
@@ -55,18 +56,36 @@ def validate_config(config: dict) -> dict:
         raise ValueError(
             f"depth.output_mode must be one of {sorted(VALID_DEPTH_OUTPUT_MODES)}, got {output_mode!r}."
         )
+    depth_model = str(config["depth"].get("depth_model", config["depth"].get("model", "midas"))).lower()
+    config["depth"]["depth_model"] = depth_model
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
         raise ValueError(f"slam.mode must be one of {sorted(VALID_SLAM_MODES)}, got {slam_mode!r}.")
 
+    representation = str(config["mapping"].get("representation", "pointcloud")).lower()
+    if representation not in VALID_MAPPING_REPRESENTATIONS:
+        raise ValueError(
+            f"mapping.representation must be one of {sorted(VALID_MAPPING_REPRESENTATIONS)}, got {representation!r}."
+        )
+    config["mapping"]["representation"] = representation
     stride = int(config["mapping"].get("stride", 0))
     max_points = int(config["mapping"].get("max_points", 0))
     if stride <= 0:
         raise ValueError("mapping.stride must be greater than 0.")
     if max_points <= 0:
         raise ValueError("mapping.max_points must be greater than 0.")
+    if representation == "tsdf":
+        voxel_length = float(config["mapping"].get("tsdf_voxel_length", 0.0))
+        sdf_trunc = float(config["mapping"].get("tsdf_sdf_trunc", 0.0))
+        depth_trunc = float(config["mapping"].get("tsdf_depth_trunc", 0.0))
+        if voxel_length <= 0.0:
+            raise ValueError("mapping.tsdf_voxel_length must be greater than 0.")
+        if sdf_trunc <= 0.0:
+            raise ValueError("mapping.tsdf_sdf_trunc must be greater than 0.")
+        if depth_trunc <= 0.0:
+            raise ValueError("mapping.tsdf_depth_trunc must be greater than 0.")
 
     return config
 

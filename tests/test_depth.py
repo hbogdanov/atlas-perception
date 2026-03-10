@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from src.depth.estimator import DepthEstimator
+from src.depth.models import get_depth_backend_class, get_registered_depth_backends
 
 
 class FakeBackend:
@@ -15,7 +16,7 @@ class FakeBackend:
 
 def build_estimator(output_mode: str, depth_output: np.ndarray) -> DepthEstimator:
     estimator = DepthEstimator.__new__(DepthEstimator)
-    estimator.config = {"model": "fake", "output_mode": output_mode}
+    estimator.config = {"depth_model": "fake", "output_mode": output_mode}
     estimator.model_name = "fake"
     estimator.output_mode = output_mode
     estimator.postprocess_config = {}
@@ -107,3 +108,14 @@ def test_temporal_fusion_blends_with_previous_frame():
 
     assert np.array_equal(first, np.ones((2, 2), dtype=np.float32))
     assert np.allclose(second, np.full((2, 2), 0.75, dtype=np.float32))
+
+
+def test_registered_depth_backends_include_default_plugins():
+    backends = get_registered_depth_backends()
+    assert "midas" in backends
+    assert "depth_anything" in backends
+
+
+def test_unknown_depth_backend_fails_with_available_plugins_list():
+    with pytest.raises(ValueError):
+        get_depth_backend_class("zoe_depth")

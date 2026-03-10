@@ -91,3 +91,32 @@ def test_trajectory_export_writes_plot(tmp_path: Path):
     assert out.with_suffix(".json").exists()
     assert out.with_suffix(".csv").exists()
     assert (tmp_path / "trajectory_plot.png").exists()
+    assert (tmp_path / "pose_graph.json").exists()
+    assert (tmp_path / "pose_graph_edges.csv").exists()
+
+
+def test_pose_graph_tracks_odometry_edges():
+    slam = SlamWrapper({"mode": "dummy", "pose_graph": {"enabled": True, "loop_closure": {"enabled": False}}})
+    slam.update(None, None, 1.0)
+    slam.update(None, None, 2.0)
+    slam.update(None, None, 3.0)
+    assert len(slam.pose_graph.nodes) == 3
+    assert len(slam.pose_graph.edges) == 2
+    assert all(edge.edge_type == "odometry" for edge in slam.pose_graph.edges)
+
+
+def test_pose_graph_adds_simple_loop_closure():
+    slam = SlamWrapper(
+        {
+            "mode": "disabled",
+            "pose_graph": {
+                "enabled": True,
+                "loop_closure": {"enabled": True, "min_node_gap": 2, "distance_threshold": 0.01},
+            },
+        }
+    )
+    slam.update(None, None, 1.0)
+    slam.update(None, None, 2.0)
+    slam.update(None, None, 3.0)
+    assert len(slam.pose_graph.loop_closures) == 1
+    assert slam.pose_graph.edges[-1].edge_type == "loop_closure"

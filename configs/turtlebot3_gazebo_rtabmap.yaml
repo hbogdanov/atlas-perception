@@ -23,7 +23,7 @@ camera:
   cy: 239.5
 
 depth:
-  model: midas
+  depth_model: midas
   device: cpu
   input_size: 518
   output_mode: relative_normalized

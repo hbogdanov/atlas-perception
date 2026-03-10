@@ -153,6 +153,8 @@ def run() -> None:
     if config["output"].get("save_pointcloud", False):
         try:
             mapper.export_ply(output_dir / "frame_cloud.ply")
+            if str(config["mapping"].get("representation", "pointcloud")).lower() == "tsdf":
+                mapper.export_mesh(output_dir / "tsdf_mesh.ply")
         except Exception as exc:
             raise RuntimeError(f"Failed to export point cloud: {exc}") from exc
     if config["output"].get("save_trajectory", False):

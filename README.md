@@ -16,7 +16,9 @@ Additional documentation:
 - ROS2 image-topic ingestion through `rclpy` and `cv_bridge`
 - Real monocular depth backends for MiDaS or Depth Anything
 - Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
+- Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
 - Explicit SLAM modes for `disabled`, `dummy`, and `rtabmap`
+- Pose-graph bookkeeping with simple loop-closure constraints for trajectory structure
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
@@ -36,7 +38,7 @@ depth estimation
 point cloud projection + transform
    |
    v
-map / cloud accumulation
+map / cloud accumulation or TSDF fusion
    |
    v
 ROS2 topic publishing
@@ -116,16 +118,32 @@ Depth outputs are explicit:
 
 - `depth.output_mode: relative_normalized` returns a per-frame normalized relative depth map in `[0, 1]`
 - `depth.output_mode: raw` returns the backend's raw depth output without pretending it is metric depth
+- `depth.depth_model: midas` selects the registered depth backend plugin to run
 - `depth.postprocess.enabled: true` turns on post-inference cleanup for smoother but still edge-aware depth
 - `depth.postprocess.bilateral_filter: true` applies spatial smoothing to reduce speckle without flattening the full scene
 - `depth.postprocess.guided_refine: true` runs an RGB-guided filter so object boundaries track image edges better
 - `depth.postprocess.temporal_fusion: true` blends consecutive depth frames to reduce flicker in video or ROS streams
+
+Depth backends are registry-driven rather than hardcoded. The built-in plugins are currently `midas` and `depth_anything`, and new backends can be added by registering another depth backend class in [src/depth/models.py](src/depth/models.py).
 
 SLAM modes are explicit:
 
 - `slam.mode: disabled` keeps pose fixed at identity
 - `slam.mode: dummy` generates synthetic forward motion for pipeline testing
 - `slam.mode: rtabmap` consumes external RTAB-Map pose output from ROS2 and uses it for world-frame cloud alignment
+
+Pose-graph support is also config-driven:
+
+- `slam.pose_graph.enabled: true` records pose nodes and odometry edges during runtime
+- `slam.pose_graph.loop_closure.enabled: true` adds simple proximity-based loop-closure edges
+- `slam.pose_graph.loop_closure.min_node_gap` prevents trivial adjacent-frame closures
+- `slam.pose_graph.loop_closure.distance_threshold` controls revisit sensitivity
+
+Mapping representations are explicit:
+
+- `mapping.representation: pointcloud` keeps the existing fast colored point-cloud fusion path
+- `mapping.representation: tsdf` runs dense volumetric fusion through Open3D `ScalableTSDFVolume`
+- `mapping.tsdf_voxel_length`, `mapping.tsdf_sdf_trunc`, and `mapping.tsdf_depth_trunc` tune TSDF resolution and truncation
 
 Config validation runs before startup and fails early on invalid camera intrinsics, unsupported modes, or missing required sections.
 
@@ -192,6 +210,7 @@ Atlas now treats pose as a mapping input rather than a side output:
 4. back-project depth into camera-frame 3D points
 5. transform points into the world frame with `T_world_camera`
 6. accumulate the transformed cloud into the global map
+   or fuse it into a TSDF volume
 7. publish depth, pose, path, and colored point cloud topics
 
 ## Sample Run Artifacts
@@ -286,7 +305,13 @@ When snapshot and export flags are enabled, the main pipeline writes:
 - `trajectory.json`
 - `trajectory.csv`
 - `trajectory_plot.png`
+- `pose_graph.json`
+- `pose_graph_edges.csv`
 - `atlas_demo.mp4`
+
+When `mapping.representation: tsdf` is enabled, the pipeline also writes:
+
+- `tsdf_mesh.ply`
 
 The quantitative evaluator writes:
 
@@ -304,6 +329,8 @@ Example artifact directory:
 - `data/outputs/tum_main_eval/trajectory.json`
 - `data/outputs/tum_main_eval/trajectory.csv`
 - `data/outputs/tum_main_eval/trajectory_plot.png`
+- `data/outputs/tum_main_eval/pose_graph.json`
+- `data/outputs/tum_main_eval/pose_graph_edges.csv`
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 - `data/outputs/depth_eval/tum_depth_eval.json`
 - `data/outputs/depth_eval/tum_depth_eval.csv`
@@ -344,8 +371,8 @@ The repository includes a checked-in `pytest.ini` that keeps pytest temp artifac
 
 - `src/io`: camera and stream adapters
 - `src/depth`: depth inference and visualization
-- `src/slam`: trajectory and odometry interfaces
-- `src/mapping`: point cloud projection, fusion, and occupancy utilities
+- `src/slam`: trajectory, pose graph, loop closure, and odometry interfaces
+- `src/mapping`: point cloud projection, TSDF fusion, and occupancy utilities
 - `src/ros2`: ROS2 nodes, publishers, subscribers, and transforms
 - `src/sim`: Isaac Sim and Gazebo bridges plus launch-time topic adaptation
 - `docs`: architecture and ROS interface documentation
@@ -353,4 +380,4 @@ The repository includes a checked-in `pytest.ini` that keeps pytest temp artifac
 
 ## Status
 
-The repository now includes real camera ingestion, monocular depth estimation, world-aligned point cloud accumulation, trajectory publishing, and simulator-aware runtime/launch configuration. RTAB-Map is supported as an external ROS2 pose source for world-frame mapping, while deeper SLAM integration remains an incremental next step.
+The repository now includes real camera ingestion, monocular depth estimation, world-aligned point cloud or TSDF mapping, trajectory publishing, pose-graph bookkeeping with simple loop-closure constraints, and simulator-aware runtime/launch configuration. RTAB-Map is supported as an external ROS2 pose source for world-frame mapping.

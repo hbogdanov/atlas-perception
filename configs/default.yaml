@@ -13,7 +13,7 @@ camera:
   cy: 239.5
 
 depth:
-  model: midas
+  depth_model: midas
   device: cpu
   input_size: 518
   output_mode: relative_normalized
@@ -38,12 +38,23 @@ slam:
   frame_stride: 1
   pose_topic: /rtabmap/localization_pose
   timeout_sec: 0.05
+  pose_graph:
+    enabled: true
+    loop_closure:
+      enabled: true
+      min_node_gap: 15
+      distance_threshold: 0.15
 
 mapping:
   enabled: true
   representation: pointcloud
   max_points: 100000
   stride: 4
+  tsdf_voxel_length: 0.04
+  tsdf_sdf_trunc: 0.08
+  tsdf_depth_scale: 1.0
+  tsdf_depth_trunc: 4.0
+  tsdf_estimate_normals: false
   export_path: data/outputs/frame_cloud.ply
 
 ros2:

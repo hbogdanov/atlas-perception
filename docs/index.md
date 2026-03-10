@@ -27,10 +27,13 @@ Depending on config flags, Atlas can write:
 - `rgb_frame.png`
 - `depth_map.png`
 - `frame_cloud.ply`
+- `tsdf_mesh.ply`
 - `trajectory.npy`
 - `trajectory.json`
 - `trajectory.csv`
 - `trajectory_plot.png`
+- `pose_graph.json`
+- `pose_graph_edges.csv`
 - `atlas_demo.mp4`
 - `tum_demo.mp4`
 - `tum_demo.gif`
@@ -44,17 +47,19 @@ Depending on config flags, Atlas can write:
 Atlas currently documents and supports:
 
 - camera ingestion from webcam, video, and ROS2 image topics
-- MiDaS and Depth Anything depth backends
+- plugin-based depth backend selection through `depth.depth_model`, with built-in MiDaS and Depth Anything backends
 - quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - quantitative trajectory evaluation with `ATE` and `RPE` against TUM-format ground truth
 - stable local pytest execution through repo-local test temp paths
 - colored point cloud generation and `.ply` export
+- selectable point-cloud or TSDF volumetric mapping
 - ROS2 publishing for depth, pose, path, and point cloud outputs
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`
+- pose-graph export with simple loop-closure constraints
 - composite demo video generation from the main pipeline
 
 Atlas does not yet claim:
 
 - calibrated metric monocular reconstruction by default
-- a built-in SLAM backend beyond dummy motion and external RTAB-Map pose consumption
+- a fully optimized built-in SLAM backend beyond dummy motion, pose-graph bookkeeping, and external RTAB-Map pose consumption
 - deep simulator-specific integrations beyond topic and launch adaptation

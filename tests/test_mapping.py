@@ -43,6 +43,40 @@ def test_pointcloud_builder_integrates_without_open3d():
     assert builder.points.shape == (4, 3)
 
 
+def test_pointcloud_builder_rejects_unknown_representation():
+    with pytest.raises(ValueError):
+        PointCloudBuilder(
+            {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+            {"representation": "meshlets", "stride": 1, "max_points": 100},
+        )
+
+
+def test_tsdf_builder_exports_mesh_and_cloud(tmp_path: Path):
+    pytest.importorskip("open3d")
+    builder = PointCloudBuilder(
+        {"fx": 100.0, "fy": 100.0, "cx": 1.0, "cy": 1.0},
+        {
+            "representation": "tsdf",
+            "stride": 1,
+            "max_points": 100,
+            "tsdf_voxel_length": 0.05,
+            "tsdf_sdf_trunc": 0.1,
+            "tsdf_depth_scale": 1.0,
+            "tsdf_depth_trunc": 3.0,
+        },
+    )
+    depth = np.ones((4, 4), dtype=np.float32)
+    rgb = np.full((4, 4, 3), 255, dtype=np.uint8)
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    point_cloud = builder.integrate(depth, rgb, pose)
+    assert point_cloud.points.shape[1] == 3
+    ply_path = tmp_path / "tsdf_cloud.ply"
+    mesh_path = tmp_path / "tsdf_mesh.ply"
+    builder.export_ply(ply_path)
+    builder.export_mesh(mesh_path)
+    assert ply_path.exists()
+
+
 def test_pointcloud_builder_ros_adapter_includes_color():
     builder = PointCloudBuilder(
         {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},

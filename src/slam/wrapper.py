@@ -6,7 +6,9 @@ from pathlib import Path
 import numpy as np
 
 from src.ros2.transforms import quaternion_to_rotation_matrix
+from src.slam.loop_closure import LoopClosureDetector
 from src.slam.odometry import PoseEstimate, identity_pose
+from src.slam.pose_graph import PoseGraph
 from src.slam.trajectory import Trajectory
 
 try:
@@ -128,11 +130,17 @@ class SlamWrapper:
         self.config = config
         self.mode = str(config.get("mode", "disabled")).lower()
         self.trajectory = Trajectory()
+        pose_graph_config = config.get("pose_graph", {})
+        loop_closure = LoopClosureDetector(pose_graph_config.get("loop_closure", {}))
+        self.pose_graph = PoseGraph(
+            loop_closure_detector=loop_closure if bool(pose_graph_config.get("enabled", True)) else None
+        )
         self.backend = self._build_backend()
 
     def update(self, image: np.ndarray, depth_map: np.ndarray, timestamp: float) -> PoseEstimate:
         pose = self.backend.update(image, depth_map, timestamp)
         self.trajectory.append(pose)
+        self.pose_graph.append(pose)
         return pose
 
     def export_trajectory(self, path: Path) -> None:
@@ -140,6 +148,8 @@ class SlamWrapper:
         self.trajectory.export_json(path.with_suffix(".json"))
         self.trajectory.export_csv(path.with_suffix(".csv"))
         self.trajectory.export_plot(path.with_name("trajectory_plot.png"))
+        self.pose_graph.export_json(path.with_name("pose_graph.json"))
+        self.pose_graph.export_csv(path.with_name("pose_graph_edges.csv"))
 
     def shutdown(self) -> None:
         self.backend.shutdown()
