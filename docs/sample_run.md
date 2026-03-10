@@ -96,6 +96,23 @@ The reported summary includes:
 
 For relative monocular backends, the evaluator median-aligns each predicted depth map to the valid ground-truth pixels before computing those scores.
 
+Trajectory evaluation can be run against TUM ground truth with the exported Atlas trajectory:
+
+```bash
+python tools/evaluate_trajectory.py --estimated-json data/outputs/tum_main_eval/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
+```
+
+That evaluator writes:
+
+- `data/outputs/trajectory_eval/trajectory_eval.json`
+- `data/outputs/trajectory_eval/trajectory_eval.csv`
+
+The reported summary includes:
+
+- `ATE` RMSE
+- `RPE` translational RMSE
+- `RPE` rotational RMSE in degrees
+
 Observed runtime summary from that run:
 
 - `avg_depth_ms=80.79`

@@ -228,6 +228,18 @@ Example results table format:
 | MiDaS | 0.17 | 0.52 | 22 |
 | Depth Anything | 0.13 | 0.41 | 18 |
 
+Quantitative trajectory evaluation against TUM ground truth:
+
+```bash
+python tools/evaluate_trajectory.py --estimated-json data/outputs/tum_main_eval/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
+```
+
+The trajectory evaluator reports:
+
+- `ATE` RMSE
+- `RPE` translational RMSE
+- `RPE` rotational RMSE in degrees
+
 ## Runtime Metrics
 
 Measured from one real 30-frame TUM `fr1/xyz` video-derived run through `src.main`:
@@ -256,6 +268,8 @@ The quantitative evaluator writes:
 
 - `tum_depth_eval.json`
 - `tum_depth_eval.csv`
+- `trajectory_eval.json`
+- `trajectory_eval.csv`
 
 Example artifact directory:
 
@@ -269,6 +283,8 @@ Example artifact directory:
 - `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
 - `data/outputs/depth_eval/tum_depth_eval.json`
 - `data/outputs/depth_eval/tum_depth_eval.csv`
+- `data/outputs/trajectory_eval/trajectory_eval.json`
+- `data/outputs/trajectory_eval/trajectory_eval.csv`
 
 ## Known Limitations
 
