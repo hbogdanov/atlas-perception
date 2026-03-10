@@ -42,6 +42,24 @@ map / cloud accumulation
 ROS2 topic publishing
 ```
 
+## Visual Results
+
+Atlas already produces the core perception outputs end to end:
+
+`RGB frame -> depth map -> point cloud / accumulated map`
+
+RGB input:
+
+![TUM RGB frame](demo/screenshots/tum_rgb_frame.png)
+
+Estimated depth:
+
+![TUM depth map](demo/screenshots/tum_depth_map.png)
+
+Projected point cloud:
+
+![TUM point cloud](demo/screenshots/pointcloud_vis.png)
+
 ## Quickstart
 
 ```bash
