@@ -44,6 +44,7 @@ Atlas currently documents and supports:
 - MiDaS and Depth Anything depth backends
 - quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - quantitative trajectory evaluation with `ATE` and `RPE` against TUM-format ground truth
+- stable local pytest execution through repo-local test temp paths
 - colored point cloud generation and `.ply` export
 - ROS2 publishing for depth, pose, path, and point cloud outputs
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`

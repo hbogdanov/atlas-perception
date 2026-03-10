@@ -311,7 +311,10 @@ Install test tooling with:
 
 ```bash
 pip install -e .[dev]
+python -m pytest
 ```
+
+The repository includes a checked-in `pytest.ini` that keeps pytest temp artifacts in repo-local test paths and disables the flaky Windows tmpdir/cache plugins used by this environment. The standard `python -m pytest` command is the expected local test entrypoint.
 
 ## Project Layout
 
