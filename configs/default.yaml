@@ -21,6 +21,17 @@ depth:
   midas_variant: MiDaS_small
   depth_anything_encoder: vitl
   prefer_torch_hub: true
+  postprocess:
+    enabled: true
+    bilateral_filter: true
+    bilateral_diameter: 7
+    bilateral_sigma_color: 0.1
+    bilateral_sigma_space: 7.0
+    guided_refine: true
+    guided_radius: 8
+    guided_eps: 0.001
+    temporal_fusion: false
+    temporal_alpha: 0.7
 
 slam:
   mode: disabled

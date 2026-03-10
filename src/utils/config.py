@@ -55,6 +55,7 @@ def validate_config(config: dict) -> dict:
         raise ValueError(
             f"depth.output_mode must be one of {sorted(VALID_DEPTH_OUTPUT_MODES)}, got {output_mode!r}."
         )
+    _validate_depth_postprocess(config["depth"].get("postprocess", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
@@ -68,6 +69,28 @@ def validate_config(config: dict) -> dict:
         raise ValueError("mapping.max_points must be greater than 0.")
 
     return config
+
+
+def _validate_depth_postprocess(postprocess: dict) -> None:
+    if not postprocess:
+        return
+    if not isinstance(postprocess, dict):
+        raise ValueError("depth.postprocess must be a dictionary when provided.")
+
+    if "bilateral_diameter" in postprocess and int(postprocess["bilateral_diameter"]) <= 0:
+        raise ValueError("depth.postprocess.bilateral_diameter must be greater than 0.")
+    if "bilateral_sigma_color" in postprocess and float(postprocess["bilateral_sigma_color"]) <= 0.0:
+        raise ValueError("depth.postprocess.bilateral_sigma_color must be greater than 0.")
+    if "bilateral_sigma_space" in postprocess and float(postprocess["bilateral_sigma_space"]) <= 0.0:
+        raise ValueError("depth.postprocess.bilateral_sigma_space must be greater than 0.")
+    if "guided_radius" in postprocess and int(postprocess["guided_radius"]) < 0:
+        raise ValueError("depth.postprocess.guided_radius must be non-negative.")
+    if "guided_eps" in postprocess and float(postprocess["guided_eps"]) <= 0.0:
+        raise ValueError("depth.postprocess.guided_eps must be greater than 0.")
+    if "temporal_alpha" in postprocess:
+        alpha = float(postprocess["temporal_alpha"])
+        if not 0.0 <= alpha <= 1.0:
+            raise ValueError("depth.postprocess.temporal_alpha must be between 0 and 1 inclusive.")
 
 
 def load_config(path: str | Path, override_path: str | Path | None = None) -> dict:

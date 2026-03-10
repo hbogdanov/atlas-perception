@@ -25,7 +25,7 @@ ROS2 Topic Publishing
 ## Flow
 
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
-2. `src/depth` loads a pretrained depth backend and converts RGB frames into dense depth estimates.
+2. `src/depth` loads a pretrained depth backend, converts RGB frames into dense depth estimates, and can run post-inference refinement.
 3. `src/slam` consumes observations and emits `T_world_camera` from `disabled`, `dummy`, or `rtabmap` backends.
 4. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
 5. `src/mapping` transforms those points into the world frame and fuses successive clouds into a larger map.
@@ -49,7 +49,7 @@ The cleanest real simulator path is:
 - `src/main.py`: process orchestration, config loading, frame loop, and artifact export
 - `src/io/camera.py`: unified frame source abstraction for webcam, file, and ROS2 streams
 - `src/io/ros_image.py`: ROS2 image topic subscriber backed by `rclpy` and `cv_bridge`
-- `src/depth/estimator.py`: backend-facing depth inference interface for MiDaS and Depth Anything
+- `src/depth/estimator.py`: backend-facing depth inference interface for MiDaS and Depth Anything plus optional bilateral, guided, and temporal depth refinement
 - `src/slam/wrapper.py`: backend contract plus `disabled`, `dummy`, and `rtabmap` trajectory integrations
 - `src/mapping/pointcloud.py`: camera-frame back-projection, world-frame accumulation, and export adapters
 - `src/ros2/nodes.py`: ROS2 bridge used to publish depth, pose, path, and colored point clouds
@@ -67,6 +67,13 @@ The main run path can write:
 - composite demo `.mp4`
 
 Those artifacts are produced from `src/main.py` based on the `output.*` config flags rather than a separate post-processing pass.
+
+Depth post-processing is part of the main estimator path, not just the renderer. When enabled under `depth.postprocess`, the refined map is the one used for:
+
+- saved depth snapshots
+- ROS2 depth publications
+- point cloud projection and map accumulation
+- demo video rendering
 
 ## Design Goals
 

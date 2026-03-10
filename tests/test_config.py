@@ -133,3 +133,21 @@ def test_validate_config_requires_source_for_video_and_ros2():
                     "output": {},
                 }
             )
+
+
+def test_validate_config_rejects_invalid_depth_postprocess_alpha():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {
+                    "output_mode": "raw",
+                    "postprocess": {"enabled": True, "temporal_alpha": 1.5},
+                },
+                "slam": {"mode": "dummy"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )

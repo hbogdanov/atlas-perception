@@ -50,6 +50,12 @@ If `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_po
 - `depth_map.png`
 - `frame_cloud.ply`
 
+With the default config, the saved depth output is post-processed before export. The current cleanup stages are:
+
+- bilateral smoothing for speckle reduction
+- RGB-guided refinement for sharper depth boundaries
+- optional temporal fusion for reduced frame-to-frame flicker in video or ROS streams
+
 If `output.save_demo_video` is enabled, the pipeline also writes a composite `.mp4` that includes:
 
 - source camera feed
@@ -105,6 +111,8 @@ This will produce:
 - `data/outputs/tum_demo/rgb_frame.png`
 - `data/outputs/tum_demo/depth_map.png`
 - `data/outputs/tum_demo/frame_cloud.ply`
+
+If you want to compare raw backend output against refined output, disable `depth.postprocess.enabled` in an override config and rerun the same command.
 
 You can also copy the first two into `demo/screenshots/` for README assets:
 

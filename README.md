@@ -80,6 +80,10 @@ Depth outputs are explicit:
 
 - `depth.output_mode: relative_normalized` returns a per-frame normalized relative depth map in `[0, 1]`
 - `depth.output_mode: raw` returns the backend's raw depth output without pretending it is metric depth
+- `depth.postprocess.enabled: true` turns on post-inference cleanup for smoother but still edge-aware depth
+- `depth.postprocess.bilateral_filter: true` applies spatial smoothing to reduce speckle without flattening the full scene
+- `depth.postprocess.guided_refine: true` runs an RGB-guided filter so object boundaries track image edges better
+- `depth.postprocess.temporal_fusion: true` blends consecutive depth frames to reduce flicker in video or ROS streams
 
 SLAM modes are explicit:
 
