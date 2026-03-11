@@ -1,6 +1,6 @@
 # Atlas Perception
 
-Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, semantic masks, point clouds, camera trajectories, and world-aligned maps for robotics pipelines.
+Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, semantic masks, point clouds, trajectory outputs, and world-aligned maps for robotics pipelines when an external or configured pose source is available.
 
 Additional documentation:
 
@@ -108,8 +108,17 @@ If you want YOLOv8 segmentation, install the optional semantics extra with `pip 
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 That preset uses looping video input plus a curved synthetic `slam.mode: dummy` motion profile so the trajectory panel and trajectory plot visibly build over time instead of staying on a straight line.
-For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, trajectory, and status, and `--show-cloud` adds a live Open3D point-cloud window.
+For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, fixed-pose status, and runtime metrics, and `--show-cloud` adds a live Open3D point-cloud window.
+In `slam.mode: dummy`, Atlas uses a synthetic pose path for visualization and map accumulation. This mode does not estimate real camera motion from monocular webcam input.
 For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
+
+## Mode Summary
+
+| Mode | Input | Pose Source | Output |
+| --- | --- | --- | --- |
+| `disabled` | webcam / video | fixed identity | depth, semantic overlays, local cloud |
+| `dummy` | webcam / video / sim | synthetic path | demo mapping, trajectory visualization |
+| `rtabmap` | ROS2 / sim | external SLAM pose | world-aligned mapping and trajectory |
 
 ## Live Webcam Mapping
 
@@ -124,16 +133,18 @@ This starts a live webcam pipeline with:
 - RGB feed
 - monocular depth estimation
 - evolving point cloud
-- trajectory/status dashboard
+- fixed-pose status dashboard by default
 
 Useful flags:
 
 - `--show-cloud` opens a live Open3D point-cloud window
 - `--save-artifacts` writes `frame_cloud.ply` and trajectory exports on exit
 - `--representation tsdf` switches the live mapper to TSDF fusion
-- `--slam-mode dummy` enables synthetic pose integration for a visibly moving accumulated map
+- `--slam-mode dummy` enables a visualization-only synthetic camera path for a visibly moving accumulated map
+- `--slam-mode rtabmap` uses externally tracked RTAB-Map poses when a ROS2 pose source is available
 
 Press `q` or `Esc` to quit.
+The dashboard also shows a prominent `SLAM: ...` badge so the active pose mode is explicit during live runs.
 
 ## Configuration
 
@@ -174,7 +185,7 @@ Semantic perception is optional:
 SLAM modes are explicit:
 
 - `slam.mode: disabled` keeps pose fixed at identity
-- `slam.mode: dummy` generates synthetic forward motion for pipeline testing
+- `slam.mode: dummy` generates a synthetic visualization path for pipeline testing and demo accumulation
 - `slam.mode: rtabmap` consumes external RTAB-Map pose output from ROS2 and uses it for world-frame cloud alignment
 
 Pose-graph support is also config-driven:

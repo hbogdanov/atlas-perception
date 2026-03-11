@@ -6,6 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 import cv2
+import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -32,6 +33,90 @@ except ImportError:  # pragma: no cover
 LOGGER = get_logger(__name__)
 WINDOW_NAME = "Atlas Webcam Mapping"
 _CLOSE_BUTTON_RECT = (1110, 16, 1260, 56)
+
+
+def _badge_style_for_mode(mode: str) -> tuple[str, tuple[int, int, int], tuple[int, int, int]]:
+    normalized = str(mode).lower()
+    if normalized == "dummy":
+        return "SLAM: DUMMY", (255, 248, 230), (173, 112, 24)
+    if normalized == "rtabmap":
+        return "SLAM: RTABMAP", (231, 248, 238), (35, 122, 69)
+    return "SLAM: DISABLED", (240, 240, 240), (90, 90, 90)
+
+
+def _trajectory_title_for_mode(mode: str) -> str:
+    normalized = str(mode).lower()
+    if normalized == "dummy":
+        return "Synthetic Camera Path (World XY)"
+    if normalized == "rtabmap":
+        return "Tracked Camera Pose (World XY)"
+    return "Fixed Camera Pose (World XY)"
+
+
+def _build_fixed_pose_panel(width: int, height: int) -> np.ndarray:
+    panel = 255 * np.ones((height, width, 3), dtype=np.uint8)
+    lines = [
+        ("Pose mode: fixed identity", 0.9, (30, 30, 30), 2),
+        ("No motion tracking is active.", 0.7, (45, 45, 45), 2),
+        ("Webcam default keeps pose fixed", 0.64, (70, 70, 70), 1),
+        ("to avoid synthetic tracking claims.", 0.64, (70, 70, 70), 1),
+        ("Use --slam-mode dummy for a", 0.62, (90, 90, 90), 1),
+        ("visualization-only synthetic path.", 0.62, (90, 90, 90), 1),
+    ]
+    y = 120
+    for text, scale, color, thickness in lines:
+        cv2.putText(panel, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+        y += 52
+    cv2.rectangle(panel, (28, 28), (width - 28, height - 28), (210, 210, 210), 2)
+    return panel
+
+
+def _build_dummy_trajectory_panel(trajectory_image: np.ndarray) -> np.ndarray:
+    panel = trajectory_image.copy()
+    overlay = panel.copy()
+    box_left = 34
+    box_top = panel.shape[0] - 116
+    box_right = panel.shape[1] - 34
+    box_bottom = panel.shape[0] - 30
+    cv2.rectangle(overlay, (box_left, box_top), (box_right, box_bottom), (248, 248, 248), -1)
+    panel = cv2.addWeighted(overlay, 0.78, panel, 0.22, 0.0)
+    cv2.rectangle(panel, (box_left, box_top), (box_right, box_bottom), (192, 192, 192), 1)
+    cv2.putText(
+        panel,
+        "Synthetic path",
+        (box_left + 20, box_top + 34),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.78,
+        (100, 100, 100),
+        2,
+    )
+    cv2.putText(
+        panel,
+        "For visualization only",
+        (box_left + 20, box_top + 72),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.66,
+        (118, 118, 118),
+        2,
+    )
+    return panel
+
+
+def _draw_mode_badge(dashboard: np.ndarray, mode: str) -> np.ndarray:
+    label, fill_color, border_color = _badge_style_for_mode(mode)
+    x1, y1, x2, y2 = 20, 16, 270, 58
+    cv2.rectangle(dashboard, (x1, y1), (x2, y2), fill_color, -1)
+    cv2.rectangle(dashboard, (x1, y1), (x2, y2), border_color, 2)
+    cv2.putText(
+        dashboard,
+        label,
+        (x1 + 16, y1 + 29),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.72,
+        border_color,
+        2,
+    )
+    return dashboard
 
 
 class LiveWindowController:
@@ -179,6 +264,7 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
     processed = 0
     start_time = perf_counter()
     point_cloud = None
+    slam_mode = str(config["slam"]["mode"]).lower()
     try:
         for frame in source.frames():
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
@@ -196,6 +282,11 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
             ros_bridge.publish_pointcloud(point_cloud, frame.timestamp)
 
             elapsed = max(perf_counter() - start_time, 1e-6)
+            trajectory_image = None
+            if slam_mode == "disabled":
+                trajectory_image = _build_fixed_pose_panel(600, 320)
+            elif slam_mode == "dummy":
+                trajectory_image = _build_dummy_trajectory_panel(slam.trajectory.render_plot(size=600))
             dashboard = DemoVideoRecorder.compose_frame(
                 rgb=frame.image,
                 depth_map=depth_map,
@@ -210,7 +301,7 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                 },
                 runtime={
                     "input_mode": str(config["input"]["mode"]),
-                    "slam_mode": str(config["slam"]["mode"]),
+                    "slam_mode": slam_mode,
                     "frame_id": str(config["ros2"].get("frame_id", "atlas_camera")),
                     "depth_topic": str(config["ros2"].get("depth_topic", "/atlas/depth")),
                     "pose_topic": str(config["ros2"].get("pose_topic", "/atlas/pose")),
@@ -218,11 +309,13 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                     "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
                     "rgb_title": "Live Camera Feed",
                     "depth_title": "Estimated Depth",
-                    "trajectory_title": "Tracked Camera Pose (World XY)",
+                    "trajectory_title": _trajectory_title_for_mode(slam_mode),
                     "status_title": "Runtime Status",
                 },
                 frame_size=(1280, 720),
+                trajectory_image=trajectory_image,
             )
+            dashboard = _draw_mode_badge(dashboard, slam_mode)
             dashboard = window_controller.draw_overlay(dashboard)
             cv2.imshow(WINDOW_NAME, dashboard)
             if cloud_viewer is not None:

@@ -32,8 +32,18 @@ class DemoVideoRecorder:
         pose: PoseEstimate,
         metrics: dict[str, float | int],
         runtime: dict[str, str],
+        trajectory_image: np.ndarray | None = None,
     ) -> None:
-        frame = self.compose_frame(rgb, depth_map, trajectory, pose, metrics, runtime, self.frame_size)
+        frame = self.compose_frame(
+            rgb,
+            depth_map,
+            trajectory,
+            pose,
+            metrics,
+            runtime,
+            self.frame_size,
+            trajectory_image=trajectory_image,
+        )
         self.writer.write(frame)
 
     def close(self) -> None:
@@ -48,6 +58,7 @@ class DemoVideoRecorder:
         metrics: dict[str, float | int],
         runtime: dict[str, str],
         frame_size: tuple[int, int] = (1280, 720),
+        trajectory_image: np.ndarray | None = None,
     ) -> np.ndarray:
         width, height = frame_size
         cell_w = width // 2
@@ -55,7 +66,9 @@ class DemoVideoRecorder:
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
         depth_vis = colorize_depth(depth_map)
-        trajectory_vis = trajectory.render_plot(size=min(cell_w, cell_h) - 40)
+        trajectory_vis = trajectory_image
+        if trajectory_vis is None:
+            trajectory_vis = trajectory.render_plot(size=min(cell_w, cell_h) - 40)
         status_vis = DemoVideoRecorder._build_status_panel(cell_w, cell_h, pose, metrics, runtime)
         rgb_title = runtime.get("rgb_title", "Simulator Camera Feed")
         depth_title = runtime.get("depth_title", "Depth Output")

@@ -5,7 +5,14 @@ import numpy as np
 
 from tools.export_demo_gif import export_demo_gif
 from tools.run_demo import build_demo_command
-from tools.run_webcam_mapping import build_runtime_config
+from tools.run_webcam_mapping import (
+    _badge_style_for_mode,
+    _build_dummy_trajectory_panel,
+    _build_fixed_pose_panel,
+    _draw_mode_badge,
+    _trajectory_title_for_mode,
+    build_runtime_config,
+)
 
 
 def test_build_demo_command_for_tum_uses_expected_configs():
@@ -13,7 +20,7 @@ def test_build_demo_command_for_tum_uses_expected_configs():
     assert command[1:4] == ["-m", "src.main", "--config"]
     assert "configs/default.yaml" in command
     assert "configs/tum_demo.yaml" in command
-    assert command[-1] == "180"
+    assert command[-1] == "240"
 
 
 def test_export_demo_gif_creates_output(tmp_path: Path):
@@ -60,3 +67,33 @@ def test_build_webcam_runtime_config_applies_live_overrides():
     assert config["mapping"]["representation"] == "tsdf"
     assert config["output"]["save_pointcloud"] is True
     assert config["output"]["save_trajectory"] is True
+
+
+def test_trajectory_title_varies_by_slam_mode():
+    assert _trajectory_title_for_mode("dummy") == "Synthetic Camera Path (World XY)"
+    assert _trajectory_title_for_mode("rtabmap") == "Tracked Camera Pose (World XY)"
+    assert _trajectory_title_for_mode("disabled") == "Fixed Camera Pose (World XY)"
+
+
+def test_fixed_pose_panel_renders_placeholder_content():
+    panel = _build_fixed_pose_panel(480, 260)
+    assert panel.shape == (260, 480, 3)
+    assert panel.dtype == np.uint8
+    assert np.count_nonzero(panel != 255) > 0
+
+
+def test_dummy_trajectory_panel_adds_visualization_notice():
+    base = np.full((320, 420, 3), 255, dtype=np.uint8)
+    panel = _build_dummy_trajectory_panel(base)
+    assert panel.shape == base.shape
+    assert np.count_nonzero(panel != base) > 0
+
+
+def test_mode_badge_renders_for_each_slam_mode():
+    assert _badge_style_for_mode("disabled")[0] == "SLAM: DISABLED"
+    assert _badge_style_for_mode("dummy")[0] == "SLAM: DUMMY"
+    assert _badge_style_for_mode("rtabmap")[0] == "SLAM: RTABMAP"
+
+    canvas = np.full((120, 320, 3), 255, dtype=np.uint8)
+    badged = _draw_mode_badge(canvas.copy(), "dummy")
+    assert np.count_nonzero(badged != canvas) > 0

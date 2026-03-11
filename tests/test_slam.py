@@ -20,8 +20,8 @@ def test_dummy_mode_generates_synthetic_motion():
     pose_b = slam.update(None, None, 2.0)
     pose_c = slam.update(None, None, 3.0)
     assert pose_a.matrix[0, 3] == 0.0
-    assert pose_b.matrix[0, 3] == pytest.approx(1.6 * (1.0 - np.cos(0.035)))
-    assert pose_b.matrix[1, 3] == pytest.approx(0.9 * np.sin(0.035))
+    assert pose_b.matrix[0, 3] == pytest.approx(1.4 * (1.0 - np.cos(0.035)))
+    assert pose_b.matrix[1, 3] == pytest.approx(1.4 * np.sin(0.035))
     assert pose_c.matrix[1, 3] > pose_b.matrix[1, 3]
     assert pose_b.matrix[2, 3] == pytest.approx(np.sin(0.05) * 0.02)
     assert pose_b.matrix[0, 0] < 1.0

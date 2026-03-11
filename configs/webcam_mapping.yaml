@@ -5,6 +5,11 @@ input:
   height: 480
   fps: 30
 
+depth:
+  input_size: 256
+  postprocess:
+    enabled: false
+
 slam:
   mode: disabled
   pose_graph:

@@ -53,8 +53,8 @@ class DummyBackend(SlamBackend):
         super().__init__(config)
         self._step = 0
         self._latest: PoseEstimate | None = None
-        self.path_radius_x = float(config.get("path_radius_x", 1.6))
-        self.path_radius_y = float(config.get("path_radius_y", 0.9))
+        self.path_radius_x = float(config.get("path_radius_x", 1.4))
+        self.path_radius_y = float(config.get("path_radius_y", 1.4))
         self.path_frequency = float(config.get("path_frequency", 0.035))
         self.vertical_amplitude = float(config.get("vertical_amplitude", 0.02))
         self.vertical_frequency = float(config.get("vertical_frequency", 0.05))
