@@ -53,18 +53,24 @@ class DummyBackend(SlamBackend):
         super().__init__(config)
         self._step = 0
         self._latest: PoseEstimate | None = None
-        self.linear_step = float(config.get("linear_step", 0.05))
-        self.lateral_amplitude = float(config.get("lateral_amplitude", 0.3))
-        self.lateral_frequency = float(config.get("lateral_frequency", 0.1))
+        self.path_radius_x = float(config.get("path_radius_x", 1.6))
+        self.path_radius_y = float(config.get("path_radius_y", 0.9))
+        self.path_frequency = float(config.get("path_frequency", 0.035))
         self.vertical_amplitude = float(config.get("vertical_amplitude", 0.02))
         self.vertical_frequency = float(config.get("vertical_frequency", 0.05))
-        self.yaw_rate = float(config.get("yaw_rate", 0.03))
+        self.heading_lookahead = float(config.get("heading_lookahead", 0.15))
 
     def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
         del rgb, depth
         pose = identity_pose(float(timestamp or 0.0))
         step = float(self._step)
-        yaw = step * self.yaw_rate
+        theta = step * self.path_frequency
+        next_theta = theta + self.heading_lookahead
+        x = self.path_radius_x * (1.0 - float(np.cos(theta)))
+        y = self.path_radius_y * float(np.sin(theta))
+        next_x = self.path_radius_x * (1.0 - float(np.cos(next_theta)))
+        next_y = self.path_radius_y * float(np.sin(next_theta))
+        yaw = float(np.arctan2(next_y - y, next_x - x))
         cos_yaw = float(np.cos(yaw))
         sin_yaw = float(np.sin(yaw))
         pose.T_world_camera[:3, :3] = np.array(
@@ -75,8 +81,8 @@ class DummyBackend(SlamBackend):
             ],
             dtype=np.float32,
         )
-        pose.T_world_camera[0, 3] = step * self.linear_step
-        pose.T_world_camera[1, 3] = float(np.sin(step * self.lateral_frequency) * self.lateral_amplitude)
+        pose.T_world_camera[0, 3] = x
+        pose.T_world_camera[1, 3] = y
         pose.T_world_camera[2, 3] = float(np.sin(step * self.vertical_frequency) * self.vertical_amplitude)
         self._step += 1
         self._latest = pose

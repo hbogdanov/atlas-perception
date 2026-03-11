@@ -57,12 +57,16 @@ class DemoVideoRecorder:
         depth_vis = colorize_depth(depth_map)
         trajectory_vis = trajectory.render_plot(size=min(cell_w, cell_h) - 40)
         status_vis = DemoVideoRecorder._build_status_panel(cell_w, cell_h, pose, metrics, runtime)
+        rgb_title = runtime.get("rgb_title", "Simulator Camera Feed")
+        depth_title = runtime.get("depth_title", "Depth Output")
+        trajectory_title = runtime.get("trajectory_title", "Trajectory")
+        status_title = runtime.get("status_title", "Atlas Outputs")
 
         tiles = [
-            DemoVideoRecorder._fit_tile(rgb, cell_w, cell_h, "Simulator Camera Feed"),
-            DemoVideoRecorder._fit_tile(depth_vis, cell_w, cell_h, "Depth Output"),
-            DemoVideoRecorder._fit_tile(trajectory_vis, cell_w, cell_h, "Trajectory"),
-            DemoVideoRecorder._fit_tile(status_vis, cell_w, cell_h, "Atlas Outputs"),
+            DemoVideoRecorder._fit_tile(rgb, cell_w, cell_h, rgb_title),
+            DemoVideoRecorder._fit_tile(depth_vis, cell_w, cell_h, depth_title),
+            DemoVideoRecorder._fit_tile(trajectory_vis, cell_w, cell_h, trajectory_title),
+            DemoVideoRecorder._fit_tile(status_vis, cell_w, cell_h, status_title),
         ]
 
         positions = [(0, 0), (cell_w, 0), (0, cell_h), (cell_w, cell_h)]

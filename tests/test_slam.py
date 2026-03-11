@@ -20,31 +20,31 @@ def test_dummy_mode_generates_synthetic_motion():
     pose_b = slam.update(None, None, 2.0)
     pose_c = slam.update(None, None, 3.0)
     assert pose_a.matrix[0, 3] == 0.0
-    assert pose_b.matrix[0, 3] == pytest.approx(0.05)
-    assert pose_b.matrix[1, 3] == pytest.approx(np.sin(0.1) * 0.3)
+    assert pose_b.matrix[0, 3] == pytest.approx(1.6 * (1.0 - np.cos(0.035)))
+    assert pose_b.matrix[1, 3] == pytest.approx(0.9 * np.sin(0.035))
     assert pose_c.matrix[1, 3] > pose_b.matrix[1, 3]
     assert pose_b.matrix[2, 3] == pytest.approx(np.sin(0.05) * 0.02)
-    assert pose_b.matrix[0, 0] == pytest.approx(np.cos(0.03), abs=1e-6)
-    assert pose_b.matrix[1, 0] == pytest.approx(np.sin(0.03), abs=1e-6)
+    assert pose_b.matrix[0, 0] < 1.0
+    assert pose_b.matrix[1, 0] > 0.0
 
 
 def test_dummy_mode_accepts_custom_motion_profile():
     slam = SlamWrapper(
         {
             "mode": "dummy",
-            "linear_step": 0.1,
-            "lateral_amplitude": 0.5,
-            "lateral_frequency": 0.2,
+            "path_radius_x": 2.0,
+            "path_radius_y": 0.5,
+            "path_frequency": 0.2,
             "vertical_amplitude": 0.0,
-            "yaw_rate": 0.05,
+            "heading_lookahead": 0.2,
         }
     )
     slam.update(None, None, 1.0)
     pose = slam.update(None, None, 2.0)
-    assert pose.matrix[0, 3] == pytest.approx(0.1)
+    assert pose.matrix[0, 3] == pytest.approx(2.0 * (1.0 - np.cos(0.2)))
     assert pose.matrix[1, 3] == pytest.approx(np.sin(0.2) * 0.5)
     assert pose.matrix[2, 3] == pytest.approx(0.0)
-    assert pose.matrix[0, 0] == pytest.approx(np.cos(0.05), abs=1e-6)
+    assert pose.matrix[0, 0] < 1.0
 
 
 def test_unknown_backend_mode_fails_explicitly():

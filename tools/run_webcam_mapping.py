@@ -30,6 +30,39 @@ except ImportError:  # pragma: no cover
 
 
 LOGGER = get_logger(__name__)
+WINDOW_NAME = "Atlas Webcam Mapping"
+_CLOSE_BUTTON_RECT = (1110, 16, 1260, 56)
+
+
+class LiveWindowController:
+    def __init__(self) -> None:
+        self.should_close = False
+        cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+        cv2.setMouseCallback(WINDOW_NAME, self._on_mouse)
+
+    def draw_overlay(self, dashboard):
+        x1, y1, x2, y2 = _CLOSE_BUTTON_RECT
+        cv2.rectangle(dashboard, (x1, y1), (x2, y2), (40, 62, 204), -1)
+        cv2.rectangle(dashboard, (x1, y1), (x2, y2), (18, 24, 120), 2)
+        cv2.putText(dashboard, "Close", (x1 + 36, y1 + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(
+            dashboard,
+            "Press Q or Esc to quit",
+            (x1 - 205, y2 - 8),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.52,
+            (45, 45, 45),
+            1,
+        )
+        return dashboard
+
+    def _on_mouse(self, event, x, y, flags, param) -> None:
+        del flags, param
+        if event != cv2.EVENT_LBUTTONDOWN:
+            return
+        x1, y1, x2, y2 = _CLOSE_BUTTON_RECT
+        if x1 <= x <= x2 and y1 <= y <= y2:
+            self.should_close = True
 
 
 def parse_args() -> argparse.Namespace:
@@ -141,9 +174,11 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
     mapper = PointCloudBuilder(config["camera"], config["mapping"])
     ros_bridge = AtlasRosBridge(config["ros2"])
     cloud_viewer = LivePointCloudViewer() if parsed.show_cloud else None
+    window_controller = LiveWindowController()
 
     processed = 0
     start_time = perf_counter()
+    point_cloud = None
     try:
         for frame in source.frames():
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
@@ -181,16 +216,21 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                     "pose_topic": str(config["ros2"].get("pose_topic", "/atlas/pose")),
                     "path_topic": str(config["ros2"].get("path_topic", "/atlas/path")),
                     "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
+                    "rgb_title": "Live Camera Feed",
+                    "depth_title": "Estimated Depth",
+                    "trajectory_title": "Tracked Camera Pose (World XY)",
+                    "status_title": "Runtime Status",
                 },
                 frame_size=(1280, 720),
             )
-            cv2.imshow("Atlas Webcam Mapping", dashboard)
+            dashboard = window_controller.draw_overlay(dashboard)
+            cv2.imshow(WINDOW_NAME, dashboard)
             if cloud_viewer is not None:
                 cloud_viewer.update(mapper)
 
             processed += 1
             key = cv2.waitKey(1) & 0xFF
-            if key in (27, ord("q")):
+            if key in (27, ord("q")) or window_controller.should_close:
                 break
             if parsed.max_frames > 0 and processed >= parsed.max_frames:
                 break
@@ -204,7 +244,7 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
 
     if config["output"].get("save_pointcloud", False):
         mapper.export_ply(output_dir / "frame_cloud.ply")
-        if point_cloud.semantic_labels is not None:
+        if point_cloud is not None and point_cloud.semantic_labels is not None:
             mapper.export_semantic_ply(output_dir / "semantic_cloud.ply")
         if str(config["mapping"].get("representation", "pointcloud")).lower() == "tsdf":
             mapper.export_mesh(output_dir / "tsdf_mesh.ply")
