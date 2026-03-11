@@ -50,3 +50,20 @@ def test_render_topdown_map_draws_fused_points():
     assert panel.shape[0] > 0
     assert panel.shape[1] > 0
     assert np.count_nonzero(panel != 250) > 0
+
+
+def test_render_topdown_map_supports_xz_projection():
+    pose = PoseEstimate(T_world_camera=np.eye(4, dtype=np.float32), timestamp=1.0, tracking_ok=True)
+    cloud = PointCloudData(
+        points=np.array([[0.0, 0.2, 1.0], [0.2, 0.4, 1.4], [0.4, 0.6, 1.8]], dtype=np.float32),
+        colors=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32),
+    )
+    panel = DemoVideoRecorder.render_topdown_map(
+        cloud,
+        pose,
+        {"mapping_ms": 2.0, "fps": 10.0, "points": 3, "frames": 2},
+        {"slam_mode": "groundtruth", "map_projection": "xz"},
+    )
+    assert panel.shape[0] > 0
+    assert panel.shape[1] > 0
+    assert np.count_nonzero(panel != 250) > 0

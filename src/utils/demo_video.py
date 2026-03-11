@@ -68,7 +68,13 @@ class DemoVideoRecorder:
         cell_h = height // 2
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
-        depth_vis = colorize_depth(depth_map)
+        depth_vis = colorize_depth(
+            depth_map,
+            min_depth=_optional_float(runtime.get("depth_viz_min")),
+            max_depth=_optional_float(runtime.get("depth_viz_max")),
+            invert=bool(runtime.get("depth_viz_invert", True)),
+            blur_ksize=int(runtime.get("depth_viz_blur_ksize", 0)),
+        )
         semantic_vis = (
             semantic_image
             if semantic_image is not None
@@ -192,10 +198,12 @@ class DemoVideoRecorder:
                 axes = points[:, [0, 1]]
                 pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
                 heading_2d = np.array([pose.matrix[0, 0], pose.matrix[1, 0]], dtype=np.float32)
+                height_values = points[:, 2] if points.shape[1] >= 3 else axes[:, 1]
             elif projection == "xz":
                 axes = points[:, [0, 2]]
                 pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
                 heading_2d = np.array([pose.matrix[0, 2], pose.matrix[2, 2]], dtype=np.float32)
+                height_values = points[:, 1] if points.shape[1] >= 3 else axes[:, 1]
             else:
                 axes = points[:, [0, 2]]
                 spans = axes.max(axis=0) - axes.min(axis=0)
@@ -203,10 +211,11 @@ class DemoVideoRecorder:
                     axes = points[:, [0, 1]]
                     pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
                     heading_2d = np.array([pose.matrix[0, 0], pose.matrix[1, 0]], dtype=np.float32)
+                    height_values = points[:, 2] if points.shape[1] >= 3 else axes[:, 1]
                 else:
                     pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
                     heading_2d = np.array([pose.matrix[0, 2], pose.matrix[2, 2]], dtype=np.float32)
-            height_values = points[:, 2] if points.shape[1] >= 3 else axes[:, 1]
+                    height_values = points[:, 1] if points.shape[1] >= 3 else axes[:, 1]
             configured_bounds = runtime.get("map_bounds")
             if isinstance(configured_bounds, (list, tuple)) and len(configured_bounds) == 4:
                 mins = np.array([float(configured_bounds[0]), float(configured_bounds[2])], dtype=np.float32)
@@ -268,3 +277,9 @@ class DemoVideoRecorder:
             cv2.putText(panel, chunk, (x, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (45, 45, 45), 2)
             x += 120
         return panel
+
+
+def _optional_float(value) -> float | None:
+    if value is None:
+        return None
+    return float(value)

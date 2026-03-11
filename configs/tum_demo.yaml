@@ -13,6 +13,9 @@ semantics:
 depth:
   source_mode: input
   output_mode: raw
+  viz_min_depth: 0.3
+  viz_max_depth: 4.0
+  viz_blur_ksize: 3
   postprocess:
     enabled: false
 
@@ -35,5 +38,5 @@ output:
   save_trajectory: true
   output_dir: data/outputs/tum_demo_eval
   demo_video_path: demo/videos/tum_demo.mp4
-  demo_map_projection: xy
+  demo_map_projection: xz
   demo_map_bounds: [-2.5, 2.5, -2.5, 2.5]
