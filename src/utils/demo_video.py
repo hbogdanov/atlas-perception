@@ -68,13 +68,7 @@ class DemoVideoRecorder:
         cell_h = height // 2
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
-        depth_vis = colorize_depth(
-            depth_map,
-            min_depth=_optional_float(runtime.get("depth_viz_min")),
-            max_depth=_optional_float(runtime.get("depth_viz_max")),
-            invert=bool(runtime.get("depth_viz_invert", True)),
-            blur_ksize=int(runtime.get("depth_viz_blur_ksize", 0)),
-        )
+        depth_vis = colorize_depth(depth_map)
         semantic_vis = (
             semantic_image
             if semantic_image is not None
@@ -221,8 +215,13 @@ class DemoVideoRecorder:
                 mins = np.array([float(configured_bounds[0]), float(configured_bounds[2])], dtype=np.float32)
                 maxs = np.array([float(configured_bounds[1]), float(configured_bounds[3])], dtype=np.float32)
             else:
-                mins = axes.min(axis=0)
-                maxs = axes.max(axis=0)
+                mins = np.percentile(axes, 1.0, axis=0).astype(np.float32)
+                maxs = np.percentile(axes, 99.0, axis=0).astype(np.float32)
+                mins = np.minimum(mins, pose_marker)
+                maxs = np.maximum(maxs, pose_marker)
+            spans = np.maximum(maxs - mins, 1e-6)
+            mins = mins - spans * 0.05
+            maxs = maxs + spans * 0.05
             spans = np.maximum(maxs - mins, 1e-6)
             margin = 28.0
             plot_w = width - 2 * margin
@@ -236,6 +235,8 @@ class DemoVideoRecorder:
             projected_x = projected_x[valid]
             projected_y = projected_y[valid]
             height_values = height_values[valid]
+            plot_layer = np.zeros_like(panel)
+            plot_mask = np.zeros((height, width), dtype=np.uint8)
             if height_values.size:
                 normalized_height = (height_values - float(height_values.min())) / max(
                     float(height_values.max() - height_values.min()), 1e-6
@@ -244,12 +245,17 @@ class DemoVideoRecorder:
                     np.clip(normalized_height * 255.0, 0, 255).astype(np.uint8),
                     cv2.COLORMAP_VIRIDIS,
                 )
-                panel[projected_y, projected_x] = height_colors[:, 0, :]
+                plot_layer[projected_y, projected_x] = height_colors[:, 0, :]
             elif colors is not None and colors.size:
                 rgb = np.clip(colors[valid] * 255.0, 0, 255).astype(np.uint8)
-                panel[projected_y, projected_x] = rgb
+                plot_layer[projected_y, projected_x] = rgb
             else:
-                panel[projected_y, projected_x] = (55, 110, 220)
+                plot_layer[projected_y, projected_x] = (55, 110, 220)
+            plot_mask[projected_y, projected_x] = 255
+            kernel = np.ones((3, 3), dtype=np.uint8)
+            plot_mask = cv2.dilate(plot_mask, kernel, iterations=1)
+            plot_layer = cv2.dilate(plot_layer, kernel, iterations=1)
+            panel[plot_mask > 0] = plot_layer[plot_mask > 0]
             pose_x = int((pose_marker[0] - mins[0]) * scale + margin + x_offset)
             pose_y = int(height - 58.0 - ((pose_marker[1] - mins[1]) * scale + y_offset))
             if 24 <= pose_x < width - 24 and 48 <= pose_y < height - 28:
@@ -277,9 +283,3 @@ class DemoVideoRecorder:
             cv2.putText(panel, chunk, (x, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (45, 45, 45), 2)
             x += 120
         return panel
-
-
-def _optional_float(value) -> float | None:
-    if value is None:
-        return None
-    return float(value)

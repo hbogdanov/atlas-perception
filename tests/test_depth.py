@@ -139,9 +139,3 @@ def test_colorize_depth_uses_robust_percentiles_for_outliers():
     depth = np.array([[0.6, 0.7, 0.8, 100.0]], dtype=np.float32)
     colorized = colorize_depth(depth)
     assert not np.array_equal(colorized[0, 0], colorized[0, 1])
-
-
-def test_colorize_depth_respects_fixed_metric_range():
-    low_range = colorize_depth(np.array([[1.0, 2.0]], dtype=np.float32), min_depth=0.3, max_depth=4.0)
-    high_range = colorize_depth(np.array([[1.0, 8.0]], dtype=np.float32), min_depth=0.3, max_depth=4.0)
-    assert np.array_equal(low_range[0, 0], high_range[0, 0])

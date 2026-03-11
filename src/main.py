@@ -22,19 +22,6 @@ from src.utils.perf import Timer
 LOGGER = get_logger(__name__)
 
 
-def _depth_viz_kwargs(config: dict) -> dict:
-    depth_config = config.get("depth", {})
-    source_mode = str(depth_config.get("source_mode", "estimate")).lower()
-    if source_mode == "input":
-        return {
-            "min_depth": float(depth_config.get("viz_min_depth", 0.3)),
-            "max_depth": float(depth_config.get("viz_max_depth", 4.0)),
-            "invert": bool(depth_config.get("viz_invert", True)),
-            "blur_ksize": int(depth_config.get("viz_blur_ksize", 3)),
-        }
-    return {"invert": bool(depth_config.get("viz_invert", True))}
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Atlas Perception pipeline.")
     parser.add_argument("--config", default="configs/default.yaml", help="Path to the base YAML config.")
@@ -54,12 +41,11 @@ def ensure_output_dir(path_str: str) -> Path:
 
 
 def save_demo_snapshots(output_dir: Path, rgb, depth_map, semantics, config: dict, saved: set[str]) -> None:
-    depth_viz_kwargs = _depth_viz_kwargs(config)
     if config["output"].get("save_rgb_snapshot", False) and "rgb" not in saved:
         cv2.imwrite(str(output_dir / "rgb_frame.png"), rgb)
         saved.add("rgb")
     if config["output"].get("save_depth_snapshot", False) and "depth" not in saved:
-        cv2.imwrite(str(output_dir / "depth_map.png"), colorize_depth(depth_map, **depth_viz_kwargs))
+        cv2.imwrite(str(output_dir / "depth_map.png"), colorize_depth(depth_map))
         saved.add("depth")
     if config["output"].get("save_semantic_snapshot", False) and "semantic" not in saved and semantics is not None:
         cv2.imwrite(str(output_dir / "semantic_overlay.png"), semantics.overlay(rgb))
@@ -103,7 +89,6 @@ def run() -> None:
 
     processed = 0
     saved_snapshots: set[str] = set()
-    depth_viz_kwargs = _depth_viz_kwargs(config)
     start_time = perf_counter()
     depth_times_ms: list[float] = []
     semantic_times_ms: list[float] = []
@@ -173,10 +158,6 @@ def run() -> None:
                         "semantic_summary": semantic_summary,
                         "map_projection": str(config["output"].get("demo_map_projection", "auto")),
                         "map_bounds": config["output"].get("demo_map_bounds"),
-                        "depth_viz_min": depth_viz_kwargs.get("min_depth"),
-                        "depth_viz_max": depth_viz_kwargs.get("max_depth"),
-                        "depth_viz_invert": depth_viz_kwargs.get("invert", True),
-                        "depth_viz_blur_ksize": depth_viz_kwargs.get("blur_ksize", 0),
                     },
                     semantic_image=semantic_image,
                     map_image=DemoVideoRecorder.render_topdown_map(
@@ -192,7 +173,7 @@ def run() -> None:
                 )
 
             if config["output"].get("visualize", False):
-                _ = colorize_depth(depth_map, **depth_viz_kwargs)
+                _ = colorize_depth(depth_map)
 
             processed += 1
             depth_times_ms.append(depth_timer.result.milliseconds)

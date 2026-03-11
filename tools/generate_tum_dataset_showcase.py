@@ -73,9 +73,6 @@ def write_override_config(path: Path, dataset_root: Path, output_dir: Path, demo
                 "depth:",
                 "  source_mode: input",
                 "  output_mode: raw",
-                "  viz_min_depth: 0.3",
-                "  viz_max_depth: 4.0",
-                "  viz_blur_ksize: 3",
                 "  postprocess:",
                 "    enabled: false",
                 "",
@@ -99,7 +96,7 @@ def write_override_config(path: Path, dataset_root: Path, output_dir: Path, demo
                 f"  output_dir: {output_dir.as_posix()}",
                 f"  demo_video_path: {demo_video_path.as_posix()}",
                 "  demo_map_projection: xz",
-                "  demo_map_bounds: [-4.0, 8.0, -4.0, 4.0]",
+                "  demo_map_bounds: null",
                 "",
             ]
         ),
