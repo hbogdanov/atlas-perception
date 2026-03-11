@@ -32,7 +32,8 @@ class DemoVideoRecorder:
         pose: PoseEstimate,
         metrics: dict[str, float | int],
         runtime: dict[str, str],
-        trajectory_image: np.ndarray | None = None,
+        semantic_image: np.ndarray | None = None,
+        map_image: np.ndarray | None = None,
     ) -> None:
         frame = self.compose_frame(
             rgb,
@@ -42,7 +43,8 @@ class DemoVideoRecorder:
             metrics,
             runtime,
             self.frame_size,
-            trajectory_image=trajectory_image,
+            semantic_image=semantic_image,
+            map_image=map_image,
         )
         self.writer.write(frame)
 
@@ -58,7 +60,8 @@ class DemoVideoRecorder:
         metrics: dict[str, float | int],
         runtime: dict[str, str],
         frame_size: tuple[int, int] = (1280, 720),
-        trajectory_image: np.ndarray | None = None,
+        semantic_image: np.ndarray | None = None,
+        map_image: np.ndarray | None = None,
     ) -> np.ndarray:
         width, height = frame_size
         cell_w = width // 2
@@ -66,20 +69,18 @@ class DemoVideoRecorder:
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
         depth_vis = colorize_depth(depth_map)
-        trajectory_vis = trajectory_image
-        if trajectory_vis is None:
-            trajectory_vis = trajectory.render_plot(size=min(cell_w, cell_h) - 40)
-        status_vis = DemoVideoRecorder._build_status_panel(cell_w, cell_h, pose, metrics, runtime)
+        semantic_vis = semantic_image if semantic_image is not None else DemoVideoRecorder._build_semantic_panel()
+        map_vis = map_image if map_image is not None else DemoVideoRecorder._build_map_panel(cell_w, cell_h, pose, metrics, runtime)
         rgb_title = runtime.get("rgb_title", "Simulator Camera Feed")
         depth_title = runtime.get("depth_title", "Depth Output")
-        trajectory_title = runtime.get("trajectory_title", "Trajectory")
-        status_title = runtime.get("status_title", "Atlas Outputs")
+        semantic_title = runtime.get("semantic_title", "Semantic Overlay")
+        map_title = runtime.get("map_title", "Fused Point Cloud Map")
 
         tiles = [
             DemoVideoRecorder._fit_tile(rgb, cell_w, cell_h, rgb_title),
             DemoVideoRecorder._fit_tile(depth_vis, cell_w, cell_h, depth_title),
-            DemoVideoRecorder._fit_tile(trajectory_vis, cell_w, cell_h, trajectory_title),
-            DemoVideoRecorder._fit_tile(status_vis, cell_w, cell_h, status_title),
+            DemoVideoRecorder._fit_tile(semantic_vis, cell_w, cell_h, semantic_title),
+            DemoVideoRecorder._fit_tile(map_vis, cell_w, cell_h, map_title),
         ]
 
         positions = [(0, 0), (cell_w, 0), (0, cell_h), (cell_w, cell_h)]
@@ -108,26 +109,136 @@ class DemoVideoRecorder:
         metrics: dict[str, float | int],
         runtime: dict[str, str],
     ) -> np.ndarray:
+        return DemoVideoRecorder._build_map_panel(width, height, pose, metrics, runtime)
+
+    @staticmethod
+    def _build_semantic_panel() -> np.ndarray:
+        panel = np.full((320, 520, 3), 248, dtype=np.uint8)
+        lines = [
+            ("Semantic segmentation disabled", 0.9, (70, 70, 70), 2),
+            ("Enable semantics.backend to render", 0.68, (95, 95, 95), 1),
+            ("live semantic overlays here.", 0.68, (95, 95, 95), 1),
+        ]
+        y = 118
+        for text, scale, color, thickness in lines:
+            cv2.putText(panel, text, (38, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+            y += 48
+        cv2.rectangle(panel, (24, 24), (panel.shape[1] - 24, panel.shape[0] - 24), (210, 210, 210), 2)
+        return panel
+
+    @staticmethod
+    def _build_map_panel(
+        width: int,
+        height: int,
+        pose: PoseEstimate,
+        metrics: dict[str, float | int],
+        runtime: dict[str, str],
+    ) -> np.ndarray:
         panel = np.full((height, width, 3), 250, dtype=np.uint8)
         tx, ty, tz = pose.matrix[0, 3], pose.matrix[1, 3], pose.matrix[2, 3]
         lines = [
-            f"input: {runtime['input_mode']}",
-            f"slam: {runtime['slam_mode']}",
-            f"frame_id: {runtime['frame_id']}",
+            f"slam mode: {runtime['slam_mode']}",
             f"pose xyz: ({tx:.2f}, {ty:.2f}, {tz:.2f})",
             f"tracking_ok: {pose.tracking_ok}",
-            f"depth_ms: {metrics['depth_ms']:.2f}",
-            f"semantic_ms: {metrics.get('semantic_ms', 0.0):.2f}",
-            f"mapping_ms: {metrics['mapping_ms']:.2f}",
+            f"fused points: {int(metrics['points'])}",
             f"fps: {metrics['fps']:.2f}",
-            f"points: {int(metrics['points'])}",
-            f"depth topic: {runtime['depth_topic']}",
-            f"pose topic: {runtime['pose_topic']}",
-            f"path topic: {runtime['path_topic']}",
-            f"cloud topic: {runtime['pointcloud_topic']}",
+            f"mapping_ms: {metrics['mapping_ms']:.2f}",
         ]
         y = 42
         for line in lines:
             cv2.putText(panel, line, (18, y), cv2.FONT_HERSHEY_SIMPLEX, 0.58, (30, 30, 30), 1)
             y += 34
+        return panel
+
+    @staticmethod
+    def render_topdown_map(
+        point_cloud,
+        pose: PoseEstimate,
+        metrics: dict[str, float | int],
+        runtime: dict[str, str],
+        size: tuple[int, int] = (520, 320),
+    ) -> np.ndarray:
+        width, height = size
+        panel = np.full((height, width, 3), 250, dtype=np.uint8)
+        cv2.rectangle(panel, (16, 16), (width - 16, height - 16), (220, 220, 220), 2)
+        points = getattr(point_cloud, "points", None)
+        colors = getattr(point_cloud, "semantic_colors", None)
+        if colors is None or not getattr(colors, "size", 0):
+            colors = getattr(point_cloud, "colors", None)
+        if points is not None and getattr(points, "size", 0):
+            points = np.asarray(points, dtype=np.float32)
+            colors = np.asarray(colors, dtype=np.float32) if colors is not None and getattr(colors, "size", 0) else None
+            axes = points[:, [0, 2]]
+            spans = axes.max(axis=0) - axes.min(axis=0)
+            if float(spans[1]) < 1e-4:
+                axes = points[:, [0, 1]]
+            height_values = points[:, 2] if points.shape[1] >= 3 else axes[:, 1]
+            mins = axes.min(axis=0)
+            maxs = axes.max(axis=0)
+            spans = np.maximum(maxs - mins, 1e-6)
+            margin = 28.0
+            plot_w = width - 2 * margin
+            plot_h = height - 110.0
+            scale = min(plot_w / spans[0], plot_h / spans[1])
+            x_offset = (plot_w - spans[0] * scale) * 0.5
+            y_offset = (plot_h - spans[1] * scale) * 0.5
+            projected_x = ((axes[:, 0] - mins[0]) * scale + margin + x_offset).astype(np.int32)
+            projected_y = (height - 58.0 - ((axes[:, 1] - mins[1]) * scale + y_offset)).astype(np.int32)
+            valid = (
+                (projected_x >= 24)
+                & (projected_x < width - 24)
+                & (projected_y >= 48)
+                & (projected_y < height - 28)
+            )
+            projected_x = projected_x[valid]
+            projected_y = projected_y[valid]
+            height_values = height_values[valid]
+            if height_values.size:
+                normalized_height = (height_values - float(height_values.min())) / max(
+                    float(height_values.max() - height_values.min()), 1e-6
+                )
+                height_colors = cv2.applyColorMap(
+                    np.clip(normalized_height * 255.0, 0, 255).astype(np.uint8),
+                    cv2.COLORMAP_VIRIDIS,
+                )
+                panel[projected_y, projected_x] = height_colors[:, 0, :]
+            elif colors is not None and colors.size:
+                rgb = np.clip(colors[valid] * 255.0, 0, 255).astype(np.uint8)
+                panel[projected_y, projected_x] = rgb
+            else:
+                panel[projected_y, projected_x] = (55, 110, 220)
+            pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
+            if float(spans[1]) < 1e-4:
+                pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
+            pose_x = int((pose_marker[0] - mins[0]) * scale + margin + x_offset)
+            pose_y = int(height - 58.0 - ((pose_marker[1] - mins[1]) * scale + y_offset))
+            if 24 <= pose_x < width - 24 and 48 <= pose_y < height - 28:
+                cv2.circle(panel, (pose_x, pose_y), 6, (0, 0, 220), -1)
+                rotation = pose.matrix[:3, :3]
+                forward = rotation[:, 2] if rotation.shape == (3, 3) else np.array([0.0, 0.0, 1.0], dtype=np.float32)
+                heading_2d = np.array([forward[0], forward[2]], dtype=np.float32)
+                if float(spans[1]) < 1e-4:
+                    heading_2d = np.array([rotation[0, 0], rotation[1, 0]], dtype=np.float32)
+                norm = float(np.linalg.norm(heading_2d))
+                if norm > 1e-6:
+                    heading_2d = heading_2d / norm
+                axis_length = 18
+                end = (
+                    int(pose_x + heading_2d[0] * axis_length),
+                    int(pose_y - heading_2d[1] * axis_length),
+                )
+                cv2.arrowedLine(panel, (pose_x, pose_y), end, (0, 0, 220), 2, tipLength=0.35)
+        else:
+            cv2.putText(panel, "No fused points yet", (40, height // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (70, 70, 70), 2)
+
+        summary = [
+            f"{runtime['slam_mode']}",
+            f"{int(metrics['points'])} pts",
+            f"{int(metrics.get('frames', 0))} frames",
+            f"{metrics['fps']:.1f} FPS",
+        ]
+        x = 24
+        for chunk in summary:
+            cv2.putText(panel, chunk, (x, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (45, 45, 45), 2)
+            x += 120
         return panel

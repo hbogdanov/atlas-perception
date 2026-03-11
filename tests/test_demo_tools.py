@@ -6,14 +6,7 @@ from PIL import Image
 
 from tools.export_demo_gif import export_demo_gif
 from tools.run_demo import build_demo_command
-from tools.run_webcam_mapping import (
-    _badge_style_for_mode,
-    _build_dummy_pose_panel,
-    _build_fixed_pose_panel,
-    _draw_mode_badge,
-    _trajectory_title_for_mode,
-    build_runtime_config,
-)
+from tools.run_webcam_mapping import _badge_style_for_mode, _draw_mode_badge, build_runtime_config
 
 
 def test_build_demo_command_for_tum_uses_expected_configs():
@@ -70,27 +63,6 @@ def test_build_webcam_runtime_config_applies_live_overrides():
     assert config["mapping"]["representation"] == "tsdf"
     assert config["output"]["save_pointcloud"] is True
     assert config["output"]["save_trajectory"] is True
-
-
-def test_trajectory_title_varies_by_slam_mode():
-    assert _trajectory_title_for_mode("dummy") == "Synthetic Pose Mode"
-    assert _trajectory_title_for_mode("rtabmap") == "Tracked Camera Pose (World XY)"
-    assert _trajectory_title_for_mode("disabled") == "Fixed Pose Mode"
-
-
-def test_fixed_pose_panel_renders_placeholder_content():
-    panel = _build_fixed_pose_panel(480, 260)
-    assert panel.shape == (260, 480, 3)
-    assert panel.dtype == np.uint8
-    assert np.count_nonzero(panel != 255) > 0
-
-
-def test_dummy_pose_panel_renders_visualization_notice():
-    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
-    panel = _build_dummy_pose_panel(420, 320, pose, {"points": 1234, "fps": 9.5})
-    assert panel.shape == (320, 420, 3)
-    assert np.count_nonzero(panel != 252) > 0
-
 
 def test_mode_badge_renders_for_each_slam_mode():
     assert _badge_style_for_mode("disabled")[0] == "SLAM: DISABLED"

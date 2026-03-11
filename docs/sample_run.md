@@ -73,8 +73,8 @@ If `output.save_demo_video` is enabled, the pipeline also writes a composite `.m
 
 - source camera feed
 - depth visualization
-- pose / mode panel
-- live status panel with pose, metrics, and ROS topic names
+- semantic overlay when semantics are enabled
+- fused point-cloud map view with live accumulation stats
 
 The composite video is generated directly from `src.main` through `src/utils/demo_video.py`.
 
@@ -103,7 +103,7 @@ That wrapper runs the TUM preset through `src.main` and exports:
 - `demo/gifs/tum_demo.gif`
 - `demo/screenshots/tum_trajectory_plot.png`
 
-The preset loops the short TUM source clip, runs a longer showcase window, and uses `slam.mode: dummy` only as a synthetic pose source for visualization-only map accumulation. The primary demo video and GIF emphasize RGB, depth, and fused mapping output rather than presenting a fake tracked trajectory as the headline result.
+The preset loops the short TUM source clip, runs a longer showcase window, and uses `slam.mode: dummy` only as a synthetic pose source for visualization-only map accumulation. The primary demo video and GIF emphasize RGB, depth, semantic-overlay, and fused-mapping output rather than presenting a fake tracked trajectory as the headline result.
 
 Live webcam showcase:
 
@@ -113,7 +113,7 @@ python run_webcam_mapping.py --show-cloud
 
 That live entrypoint opens:
 
-- a real-time RGB + depth + pose-status dashboard
+- a real-time RGB + depth + semantic-overlay + fused-map dashboard
 - an optional Open3D point-cloud window
 
 Use `--save-artifacts` if you want the live run to export `frame_cloud.ply` and trajectory files on exit.

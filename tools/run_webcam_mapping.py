@@ -6,7 +6,6 @@ from pathlib import Path
 from time import perf_counter
 
 import cv2
-import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -42,54 +41,6 @@ def _badge_style_for_mode(mode: str) -> tuple[str, tuple[int, int, int], tuple[i
     if normalized == "rtabmap":
         return "SLAM: RTABMAP", (231, 248, 238), (35, 122, 69)
     return "SLAM: DISABLED", (240, 240, 240), (90, 90, 90)
-
-
-def _trajectory_title_for_mode(mode: str) -> str:
-    normalized = str(mode).lower()
-    if normalized == "dummy":
-        return "Synthetic Pose Mode"
-    if normalized == "rtabmap":
-        return "Tracked Camera Pose (World XY)"
-    return "Fixed Pose Mode"
-
-
-def _build_fixed_pose_panel(width: int, height: int) -> np.ndarray:
-    panel = 255 * np.ones((height, width, 3), dtype=np.uint8)
-    lines = [
-        ("Pose mode: fixed identity", 0.9, (30, 30, 30), 2),
-        ("No motion tracking is active.", 0.7, (45, 45, 45), 2),
-        ("Webcam default keeps pose fixed", 0.64, (70, 70, 70), 1),
-        ("to avoid synthetic tracking claims.", 0.64, (70, 70, 70), 1),
-        ("Use --slam-mode dummy for a", 0.62, (90, 90, 90), 1),
-        ("visualization-only synthetic path.", 0.62, (90, 90, 90), 1),
-    ]
-    y = 120
-    for text, scale, color, thickness in lines:
-        cv2.putText(panel, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
-        y += 52
-    cv2.rectangle(panel, (28, 28), (width - 28, height - 28), (210, 210, 210), 2)
-    return panel
-
-
-def _build_dummy_pose_panel(width: int, height: int, pose, metrics: dict[str, float | int]) -> np.ndarray:
-    panel = np.full((height, width, 3), 252, dtype=np.uint8)
-    tx, ty, tz = pose.matrix[0, 3], pose.matrix[1, 3], pose.matrix[2, 3]
-    lines = [
-        ("Synthetic pose path enabled", 0.9, (78, 78, 78), 2),
-        ("Visualization-only map accumulation", 0.72, (95, 95, 95), 2),
-        ("No real webcam motion is estimated.", 0.64, (110, 110, 110), 1),
-        (f"pose xyz: ({tx:.2f}, {ty:.2f}, {tz:.2f})", 0.6, (55, 55, 55), 1),
-        (f"fused points: {int(metrics['points'])}", 0.6, (55, 55, 55), 1),
-        (f"mapping fps: {float(metrics['fps']):.2f}", 0.6, (55, 55, 55), 1),
-        ("Use --slam-mode rtabmap for tracked pose", 0.58, (85, 85, 85), 1),
-    ]
-    y = 110
-    for text, scale, color, thickness in lines:
-        cv2.putText(panel, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
-        y += 50
-    cv2.rectangle(panel, (28, 28), (width - 28, height - 28), (210, 210, 210), 2)
-    return panel
-
 
 def _draw_mode_badge(dashboard: np.ndarray, mode: str) -> np.ndarray:
     label, fill_color, border_color = _badge_style_for_mode(mode)
@@ -277,12 +228,8 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                 "mapping_ms": mapping_timer.result.milliseconds,
                 "fps": (processed + 1) / elapsed,
                 "points": point_cloud.points.shape[0],
+                "frames": processed + 1,
             }
-            trajectory_image = None
-            if slam_mode == "disabled":
-                trajectory_image = _build_fixed_pose_panel(600, 320)
-            elif slam_mode == "dummy":
-                trajectory_image = _build_dummy_pose_panel(600, 320, pose, metrics)
             dashboard = DemoVideoRecorder.compose_frame(
                 rgb=frame.image,
                 depth_map=depth_map,
@@ -299,11 +246,21 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
                     "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
                     "rgb_title": "Live Camera Feed",
                     "depth_title": "Estimated Depth",
-                    "trajectory_title": _trajectory_title_for_mode(slam_mode),
-                    "status_title": "Runtime Status",
+                    "semantic_title": "Semantic Overlay",
+                    "map_title": "Fused Point Cloud Map",
                 },
                 frame_size=(1280, 720),
-                trajectory_image=trajectory_image,
+                semantic_image=(
+                    semantic_prediction.overlay(frame.image)
+                    if semantic_prediction is not None and (semantic_prediction.labels >= 0).any()
+                    else None
+                ),
+                map_image=DemoVideoRecorder.render_topdown_map(
+                    point_cloud,
+                    pose,
+                    metrics,
+                    {"slam_mode": slam_mode},
+                ),
             )
             dashboard = _draw_mode_badge(dashboard, slam_mode)
             dashboard = window_controller.draw_overlay(dashboard)

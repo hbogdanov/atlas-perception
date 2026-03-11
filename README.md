@@ -28,8 +28,8 @@ Additional documentation:
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
-- Composite demo video export showing feed, depth, trajectory, and published-output status
-- One-command live webcam mapping entrypoint with a real-time depth dashboard
+- Composite demo video export showing RGB, depth, semantic overlay, and fused-map panels
+- One-command live webcam mapping entrypoint with a real-time 2x2 perception dashboard
 
 ## Pipeline
 
@@ -53,9 +53,11 @@ map / cloud accumulation or TSDF fusion
 ROS2 topic publishing
 ```
 
-## Example Output
+## Example Pipeline Output
 
 Pipeline run on a TUM office sequence.
+
+Live monocular RGB -> depth -> semantic segmentation -> fused 3D map.
 
 Outputs:
 
@@ -107,10 +109,10 @@ The first run of a Torch Hub backend may download model assets. For more reprodu
 The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simulator and ROS-specific override configs enable it explicitly.
 The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
 If you want YOLOv8 segmentation, install the optional semantics extra with `pip install -e .[semantics]`.
-For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
+For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with RGB, depth, semantic-overlay, and fused-map panels.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
 That preset uses looping video input plus a synthetic `slam.mode: dummy` pose source so the fused map can accumulate for demo export without implying real monocular tracking.
-For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, fixed-pose status, and runtime metrics, and `--show-cloud` adds a live Open3D point-cloud window.
+For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, semantic-overlay, and fused-map panels, and `--show-cloud` adds a live Open3D point-cloud window.
 In `slam.mode: dummy`, Atlas uses a synthetic pose path for visualization and map accumulation. This mode does not estimate real camera motion from monocular webcam input.
 For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
 
@@ -134,8 +136,8 @@ This starts a live webcam pipeline with:
 
 - RGB feed
 - monocular depth estimation
-- evolving point cloud
-- fixed-pose status dashboard by default
+- semantic overlay when semantics are enabled
+- fused point-cloud map view
 
 Useful flags:
 
@@ -158,6 +160,10 @@ Trajectory support stays in the repo for:
 - future real pose sources beyond the current demo modes
 
 The default webcam dashboard intentionally de-emphasizes trajectory output. In `slam.mode: disabled`, pose stays fixed. In `slam.mode: dummy`, Atlas shows synthetic-pose status for visualization-only map accumulation rather than presenting a fake tracked path as a headline result.
+
+Trajectory example:
+
+![Trajectory plot](demo/screenshots/tum_trajectory_plot.png)
 
 ## Configuration
 

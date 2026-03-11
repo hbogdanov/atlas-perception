@@ -5,7 +5,6 @@ from pathlib import Path
 from time import perf_counter
 
 import cv2
-import numpy as np
 
 from src.depth.estimator import DepthEstimator
 from src.depth.visualize import colorize_depth
@@ -21,39 +20,6 @@ from src.utils.logger import get_logger
 from src.utils.perf import Timer
 
 LOGGER = get_logger(__name__)
-
-
-def _build_demo_pose_panel(mode: str, pose, metrics: dict[str, float | int], width: int = 600, height: int = 320):
-    normalized = str(mode).lower()
-    if normalized == "rtabmap":
-        return None
-    panel = np.full((height, width, 3), 250, dtype=np.uint8)
-    tx, ty, tz = pose.matrix[0, 3], pose.matrix[1, 3], pose.matrix[2, 3]
-    if normalized == "dummy":
-        lines = [
-            ("Synthetic pose source", 0.9, (80, 80, 80), 2),
-            ("Visualization-only map accumulation", 0.72, (98, 98, 98), 2),
-            ("The demo does not estimate real motion.", 0.64, (112, 112, 112), 1),
-        ]
-    else:
-        lines = [
-            ("Fixed pose source", 0.9, (80, 80, 80), 2),
-            ("Pose is held at identity.", 0.72, (98, 98, 98), 2),
-            ("This demo focuses on depth and mapping output.", 0.64, (112, 112, 112), 1),
-        ]
-    lines.extend(
-        [
-            (f"pose xyz: ({tx:.2f}, {ty:.2f}, {tz:.2f})", 0.6, (55, 55, 55), 1),
-            (f"fused points: {int(metrics['points'])}", 0.6, (55, 55, 55), 1),
-            (f"mapping fps: {float(metrics['fps']):.2f}", 0.6, (55, 55, 55), 1),
-        ]
-    )
-    y = 110
-    for text, scale, color, thickness in lines:
-        cv2.putText(panel, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
-        y += 50
-    cv2.rectangle(panel, (28, 28), (width - 28, height - 28), (210, 210, 210), 2)
-    return panel
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,6 +120,7 @@ def run() -> None:
                     "mapping_ms": mapping_timer.result.milliseconds,
                     "fps": processed / max(perf_counter() - start_time, 1e-6),
                     "points": point_cloud.points.shape[0],
+                    "frames": processed + 1,
                 }
                 demo_video.write(
                     rgb=rgb,
@@ -169,8 +136,20 @@ def run() -> None:
                         "pose_topic": str(config["ros2"].get("pose_topic", "/atlas/pose")),
                         "path_topic": str(config["ros2"].get("path_topic", "/atlas/path")),
                         "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
+                        "semantic_title": "Semantic Overlay",
+                        "map_title": "Fused Point Cloud Map",
                     },
-                    trajectory_image=_build_demo_pose_panel(str(config["slam"]["mode"]), pose, metrics),
+                    semantic_image=(
+                        semantic_prediction.overlay(rgb)
+                        if semantic_prediction is not None and (semantic_prediction.labels >= 0).any()
+                        else None
+                    ),
+                    map_image=DemoVideoRecorder.render_topdown_map(
+                        point_cloud,
+                        pose,
+                        metrics,
+                        {"slam_mode": str(config["slam"]["mode"])},
+                    ),
                 )
 
             if config["output"].get("visualize", False):
