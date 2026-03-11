@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atlas-perception"
-version = "0.1.0"
+version = "1.0.0"
 description = "Camera-based robot perception stack for depth, localization, and map-building."
 readme = "README.md"
 requires-python = ">=3.10"
