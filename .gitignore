@@ -26,8 +26,15 @@ demo/screenshots/*
 demo/gifs/*
 !demo/gifs/.gitkeep
 !demo/gifs/tum_demo.gif
+!demo/gifs/freiburg1_desk_demo.gif
+!demo/gifs/freiburg1_desk2_demo.gif
+!demo/gifs/freiburg1_room_demo.gif
+!demo/gifs/freiburg2_desk_demo.gif
+!demo/gifs/freiburg3_long_office_household_demo.gif
 demo/videos/*
 !demo/videos/.gitkeep
+configs/generated/
+data/outputs/dataset_showcase/
 data/samples/*
 !data/samples/.gitkeep
 models/checkpoints/

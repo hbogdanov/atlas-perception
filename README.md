@@ -83,6 +83,30 @@ Projected point cloud:
 
 ![TUM point cloud](demo/screenshots/pointcloud_vis.png)
 
+## Temporary Dataset Comparison
+
+Temporary side-by-side demos for the five newly added TUM RGB-D sequences:
+
+### Freiburg1 Desk
+
+![Freiburg1 Desk demo](demo/gifs/freiburg1_desk_demo.gif)
+
+### Freiburg1 Desk2
+
+![Freiburg1 Desk2 demo](demo/gifs/freiburg1_desk2_demo.gif)
+
+### Freiburg1 Room
+
+![Freiburg1 Room demo](demo/gifs/freiburg1_room_demo.gif)
+
+### Freiburg2 Desk
+
+![Freiburg2 Desk demo](demo/gifs/freiburg2_desk_demo.gif)
+
+### Freiburg3 Long Office Household
+
+![Freiburg3 Long Office Household demo](demo/gifs/freiburg3_long_office_household_demo.gif)
+
 ## Quickstart
 
 ```bash
