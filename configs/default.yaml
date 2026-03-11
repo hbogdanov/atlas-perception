@@ -57,8 +57,8 @@ slam:
 mapping:
   enabled: true
   representation: pointcloud
-  max_points: 100000
-  stride: 4
+  max_points: 150000
+  stride: 2
   semantic_color_fusion: true
   tsdf_voxel_length: 0.04
   tsdf_sdf_trunc: 0.08

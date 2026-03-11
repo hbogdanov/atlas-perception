@@ -17,8 +17,8 @@ slam:
 
 mapping:
   representation: pointcloud
-  stride: 6
-  max_points: 60000
+  stride: 3
+  max_points: 100000
 
 output:
   save_rgb_snapshot: false

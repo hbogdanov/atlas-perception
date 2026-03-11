@@ -3,6 +3,7 @@ import pytest
 
 from src.depth.estimator import DepthEstimator
 from src.depth.models import get_depth_backend_class, get_registered_depth_backends
+from src.depth.visualize import colorize_depth
 
 
 class FakeBackend:
@@ -125,3 +126,16 @@ def test_registered_depth_backends_include_default_plugins():
 def test_unknown_depth_backend_fails_with_available_plugins_list():
     with pytest.raises(ValueError):
         get_depth_backend_class("zoe_depth")
+
+
+def test_colorize_depth_maps_near_depth_to_hotter_colors():
+    colorized = colorize_depth(np.array([[0.5, 5.0]], dtype=np.float32))
+    near_pixel = colorized[0, 0].astype(np.int32)
+    far_pixel = colorized[0, 1].astype(np.int32)
+    assert int(near_pixel[2]) > int(far_pixel[2])
+
+
+def test_colorize_depth_uses_robust_percentiles_for_outliers():
+    depth = np.array([[0.6, 0.7, 0.8, 100.0]], dtype=np.float32)
+    colorized = colorize_depth(depth)
+    assert not np.array_equal(colorized[0, 0], colorized[0, 1])

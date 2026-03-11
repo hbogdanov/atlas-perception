@@ -19,6 +19,11 @@ depth:
 slam:
   mode: groundtruth
 
+mapping:
+  representation: pointcloud
+  stride: 2
+  max_points: 150000
+
 ros2:
   enabled: false
 
