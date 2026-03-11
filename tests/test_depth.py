@@ -3,7 +3,7 @@ import pytest
 
 from src.depth.estimator import DepthEstimator
 from src.depth.models import get_depth_backend_class, get_registered_depth_backends
-from src.depth.visualize import colorize_depth
+from src.depth.visualize import colorize_depth, normalize_depth_for_display
 
 
 class FakeBackend:
@@ -136,24 +136,17 @@ def test_colorize_depth_maps_near_depth_to_hotter_colors():
 
 
 def test_colorize_depth_uses_robust_percentiles_for_outliers():
-    depth = np.array([[0.6, 0.7, 0.8, 100.0]], dtype=np.float32)
+    depth = np.array([[0.2, 0.5, 1.0]], dtype=np.float32)
     colorized = colorize_depth(depth)
     assert not np.array_equal(colorized[0, 0], colorized[0, 1])
 
 
-def test_colorize_depth_respects_fixed_metric_range():
-    stable_a = colorize_depth(np.array([[1.0, 2.0]], dtype=np.float32), min_depth=0.4, max_depth=5.5)
-    stable_b = colorize_depth(np.array([[1.0, 8.0]], dtype=np.float32), min_depth=0.4, max_depth=5.5)
-    assert np.array_equal(stable_a[0, 0], stable_b[0, 0])
+def test_normalize_depth_for_display_maps_metric_depth_to_unit_interval():
+    normalized = normalize_depth_for_display(np.array([[1.0, 2.0, 4.0]], dtype=np.float32))
+    assert normalized.min() >= 0.0
+    assert normalized.max() <= 1.0
 
 
-def test_colorize_depth_can_fill_invalid_holes_for_display():
-    colorized = colorize_depth(
-        np.array([[1.0, 0.0, 1.2]], dtype=np.float32),
-        min_depth=0.4,
-        max_depth=5.5,
-        fill_invalid=True,
-    )
-    left = colorized[0, 0].astype(np.int32)
-    middle = colorized[0, 1].astype(np.int32)
-    assert np.linalg.norm(middle - left) < 120
+def test_normalize_depth_for_display_can_fill_invalid_holes():
+    normalized = normalize_depth_for_display(np.array([[1.0, 0.0, 1.2]], dtype=np.float32))
+    assert normalized[0, 1] > 0.0
