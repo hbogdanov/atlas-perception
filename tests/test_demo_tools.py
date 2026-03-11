@@ -2,12 +2,13 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from tools.export_demo_gif import export_demo_gif
 from tools.run_demo import build_demo_command
 from tools.run_webcam_mapping import (
     _badge_style_for_mode,
-    _build_dummy_trajectory_panel,
+    _build_dummy_pose_panel,
     _build_fixed_pose_panel,
     _draw_mode_badge,
     _trajectory_title_for_mode,
@@ -35,10 +36,12 @@ def test_export_demo_gif_creates_output(tmp_path: Path):
     finally:
         writer.release()
 
-    out = export_demo_gif(video_path, gif_path, fps=5.0, max_frames=4, width=64)
+    out = export_demo_gif(video_path, gif_path, fps=5.0, max_frames=4, width=64, duration_ms=100)
     assert out == gif_path
     assert gif_path.exists()
     assert gif_path.stat().st_size > 0
+    with Image.open(gif_path) as image:
+        assert image.info.get("duration") == 100
 
 
 def test_build_webcam_runtime_config_applies_live_overrides():
@@ -70,9 +73,9 @@ def test_build_webcam_runtime_config_applies_live_overrides():
 
 
 def test_trajectory_title_varies_by_slam_mode():
-    assert _trajectory_title_for_mode("dummy") == "Synthetic Camera Path (World XY)"
+    assert _trajectory_title_for_mode("dummy") == "Synthetic Pose Mode"
     assert _trajectory_title_for_mode("rtabmap") == "Tracked Camera Pose (World XY)"
-    assert _trajectory_title_for_mode("disabled") == "Fixed Camera Pose (World XY)"
+    assert _trajectory_title_for_mode("disabled") == "Fixed Pose Mode"
 
 
 def test_fixed_pose_panel_renders_placeholder_content():
@@ -82,11 +85,11 @@ def test_fixed_pose_panel_renders_placeholder_content():
     assert np.count_nonzero(panel != 255) > 0
 
 
-def test_dummy_trajectory_panel_adds_visualization_notice():
-    base = np.full((320, 420, 3), 255, dtype=np.uint8)
-    panel = _build_dummy_trajectory_panel(base)
-    assert panel.shape == base.shape
-    assert np.count_nonzero(panel != base) > 0
+def test_dummy_pose_panel_renders_visualization_notice():
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    panel = _build_dummy_pose_panel(420, 320, pose, {"points": 1234, "fps": 9.5})
+    assert panel.shape == (320, 420, 3)
+    assert np.count_nonzero(panel != 252) > 0
 
 
 def test_mode_badge_renders_for_each_slam_mode():

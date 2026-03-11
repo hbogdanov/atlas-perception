@@ -47,10 +47,10 @@ def _badge_style_for_mode(mode: str) -> tuple[str, tuple[int, int, int], tuple[i
 def _trajectory_title_for_mode(mode: str) -> str:
     normalized = str(mode).lower()
     if normalized == "dummy":
-        return "Synthetic Camera Path (World XY)"
+        return "Synthetic Pose Mode"
     if normalized == "rtabmap":
         return "Tracked Camera Pose (World XY)"
-    return "Fixed Camera Pose (World XY)"
+    return "Fixed Pose Mode"
 
 
 def _build_fixed_pose_panel(width: int, height: int) -> np.ndarray:
@@ -71,34 +71,23 @@ def _build_fixed_pose_panel(width: int, height: int) -> np.ndarray:
     return panel
 
 
-def _build_dummy_trajectory_panel(trajectory_image: np.ndarray) -> np.ndarray:
-    panel = trajectory_image.copy()
-    overlay = panel.copy()
-    box_left = 34
-    box_top = panel.shape[0] - 116
-    box_right = panel.shape[1] - 34
-    box_bottom = panel.shape[0] - 30
-    cv2.rectangle(overlay, (box_left, box_top), (box_right, box_bottom), (248, 248, 248), -1)
-    panel = cv2.addWeighted(overlay, 0.78, panel, 0.22, 0.0)
-    cv2.rectangle(panel, (box_left, box_top), (box_right, box_bottom), (192, 192, 192), 1)
-    cv2.putText(
-        panel,
-        "Synthetic path",
-        (box_left + 20, box_top + 34),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.78,
-        (100, 100, 100),
-        2,
-    )
-    cv2.putText(
-        panel,
-        "For visualization only",
-        (box_left + 20, box_top + 72),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.66,
-        (118, 118, 118),
-        2,
-    )
+def _build_dummy_pose_panel(width: int, height: int, pose, metrics: dict[str, float | int]) -> np.ndarray:
+    panel = np.full((height, width, 3), 252, dtype=np.uint8)
+    tx, ty, tz = pose.matrix[0, 3], pose.matrix[1, 3], pose.matrix[2, 3]
+    lines = [
+        ("Synthetic pose path enabled", 0.9, (78, 78, 78), 2),
+        ("Visualization-only map accumulation", 0.72, (95, 95, 95), 2),
+        ("No real webcam motion is estimated.", 0.64, (110, 110, 110), 1),
+        (f"pose xyz: ({tx:.2f}, {ty:.2f}, {tz:.2f})", 0.6, (55, 55, 55), 1),
+        (f"fused points: {int(metrics['points'])}", 0.6, (55, 55, 55), 1),
+        (f"mapping fps: {float(metrics['fps']):.2f}", 0.6, (55, 55, 55), 1),
+        ("Use --slam-mode rtabmap for tracked pose", 0.58, (85, 85, 85), 1),
+    ]
+    y = 110
+    for text, scale, color, thickness in lines:
+        cv2.putText(panel, text, (40, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
+        y += 50
+    cv2.rectangle(panel, (28, 28), (width - 28, height - 28), (210, 210, 210), 2)
     return panel
 
 
@@ -282,23 +271,24 @@ def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
             ros_bridge.publish_pointcloud(point_cloud, frame.timestamp)
 
             elapsed = max(perf_counter() - start_time, 1e-6)
+            metrics = {
+                "depth_ms": depth_timer.result.milliseconds,
+                "semantic_ms": semantic_timer.result.milliseconds,
+                "mapping_ms": mapping_timer.result.milliseconds,
+                "fps": (processed + 1) / elapsed,
+                "points": point_cloud.points.shape[0],
+            }
             trajectory_image = None
             if slam_mode == "disabled":
                 trajectory_image = _build_fixed_pose_panel(600, 320)
             elif slam_mode == "dummy":
-                trajectory_image = _build_dummy_trajectory_panel(slam.trajectory.render_plot(size=600))
+                trajectory_image = _build_dummy_pose_panel(600, 320, pose, metrics)
             dashboard = DemoVideoRecorder.compose_frame(
                 rgb=frame.image,
                 depth_map=depth_map,
                 trajectory=slam.trajectory,
                 pose=pose,
-                metrics={
-                    "depth_ms": depth_timer.result.milliseconds,
-                    "semantic_ms": semantic_timer.result.milliseconds,
-                    "mapping_ms": mapping_timer.result.milliseconds,
-                    "fps": (processed + 1) / elapsed,
-                    "points": point_cloud.points.shape[0],
-                },
+                metrics=metrics,
                 runtime={
                     "input_mode": str(config["input"]["mode"]),
                     "slam_mode": slam_mode,

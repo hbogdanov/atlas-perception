@@ -24,6 +24,7 @@ DEMO_PRESETS = {
         "gif_fps": 6.0,
         "gif_max_frames": 160,
         "gif_width": 960,
+        "gif_duration_ms": 100,
     }
 }
 
@@ -69,6 +70,7 @@ def run_demo(dataset: str, max_frames: int | None = None, skip_gif: bool = False
             fps=float(preset.get("gif_fps", 8.0)),
             max_frames=int(preset.get("gif_max_frames", 80)),
             width=int(preset.get("gif_width", 960)),
+            duration_ms=int(preset["gif_duration_ms"]) if "gif_duration_ms" in preset else None,
         )
     return video_path
 

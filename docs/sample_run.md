@@ -73,7 +73,7 @@ If `output.save_demo_video` is enabled, the pipeline also writes a composite `.m
 
 - source camera feed
 - depth visualization
-- trajectory plot
+- pose / mode panel
 - live status panel with pose, metrics, and ROS topic names
 
 The composite video is generated directly from `src.main` through `src/utils/demo_video.py`.
@@ -103,7 +103,7 @@ That wrapper runs the TUM preset through `src.main` and exports:
 - `demo/gifs/tum_demo.gif`
 - `demo/screenshots/tum_trajectory_plot.png`
 
-The preset loops the short TUM source clip, runs a longer showcase window, and uses a curved `slam.mode: dummy` motion profile, so the exported trajectory visibly grows instead of staying fixed or collapsing into a straight line.
+The preset loops the short TUM source clip, runs a longer showcase window, and uses `slam.mode: dummy` only as a synthetic pose source for visualization-only map accumulation. The primary demo video and GIF emphasize RGB, depth, and fused mapping output rather than presenting a fake tracked trajectory as the headline result.
 
 Live webcam showcase:
 
@@ -113,7 +113,7 @@ python run_webcam_mapping.py --show-cloud
 
 That live entrypoint opens:
 
-- a real-time RGB + depth + trajectory dashboard
+- a real-time RGB + depth + pose-status dashboard
 - an optional Open3D point-cloud window
 
 Use `--save-artifacts` if you want the live run to export `frame_cloud.ply` and trajectory files on exit.
@@ -190,10 +190,9 @@ The TUM files are time-stamped PNGs, with depth maps stored as 16-bit PNG where 
 
 ## Exact First Demo
 
-1. Download `fr1/xyz` from the official TUM download page.
-2. Extract it under `data/samples/tum_freiburg1_xyz/`.
-3. Pick one RGB frame from `rgb/`.
-4. Run:
+1. Use the included sample under `data/samples/tum_freiburg1_xyz/`, or download `fr1/xyz` from the official TUM page if you want a fresh copy.
+2. Pick one RGB frame from `rgb/`.
+3. Run:
 
 ```bash
 python tools/run_tum_artifact.py --rgb data/samples/tum_freiburg1_xyz/rgb/1305031102.175304.png --out-dir data/outputs/tum_demo

@@ -1,6 +1,8 @@
 # Atlas Perception
 
-Atlas Perception reconstructs 3D geometry from monocular RGB sequences and produces depth maps, semantic masks, point clouds, trajectory outputs, and world-aligned maps for robotics pipelines when an external or configured pose source is available.
+Atlas Perception reconstructs 3D scene geometry from monocular RGB input and produces depth maps, semantic overlays, colored point clouds, and map-ready outputs for robotics pipelines. When an external or configured pose source is available, Atlas also supports trajectory export and world-aligned mapping.
+
+Atlas Perception is a modular robotics perception stack that converts monocular RGB input into depth maps, semantic overlays, and fused 3D scene reconstructions suitable for mapping and robotics pipelines.
 
 Additional documentation:
 
@@ -59,10 +61,9 @@ Outputs:
 
 - monocular depth maps
 - semantic overlays
-- reconstructed point cloud
-- estimated camera trajectory
+- fused point cloud maps
 
-`RGB frame -> depth map -> point cloud -> trajectory / map`
+`RGB frame -> depth map -> semantic overlay -> fused map`
 
 Animated demo:
 
@@ -80,10 +81,6 @@ Projected point cloud:
 
 ![TUM point cloud](demo/screenshots/pointcloud_vis.png)
 
-Trajectory plot:
-
-![Trajectory plot](demo/screenshots/tum_trajectory_plot.png)
-
 ## Quickstart
 
 ```bash
@@ -95,10 +92,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .[dev]
 pip install -e .[semantics]
+python run_webcam_mapping.py
+```
+
+Then use the advanced entrypoints as needed:
+
+```bash
 python -m src.main --config configs/default.yaml
 python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
 python tools/run_demo.py --dataset tum
-python run_webcam_mapping.py
 ```
 
 The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
@@ -107,7 +109,7 @@ The main pipeline can also save a demo-ready artifact set directly via `output.s
 If you want YOLOv8 segmentation, install the optional semantics extra with `pip install -e .[semantics]`.
 For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with the camera feed, depth output, trajectory plot, and ROS topic/status panel.
 For the fastest local showcase path, `python tools/run_demo.py --dataset tum` runs the TUM preset and exports `demo/gifs/tum_demo.gif`.
-That preset uses looping video input plus a curved synthetic `slam.mode: dummy` motion profile so the trajectory panel and trajectory plot visibly build over time instead of staying on a straight line.
+That preset uses looping video input plus a synthetic `slam.mode: dummy` pose source so the fused map can accumulate for demo export without implying real monocular tracking.
 For a live laptop-camera demo, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, fixed-pose status, and runtime metrics, and `--show-cloud` adds a live Open3D point-cloud window.
 In `slam.mode: dummy`, Atlas uses a synthetic pose path for visualization and map accumulation. This mode does not estimate real camera motion from monocular webcam input.
 For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
@@ -117,7 +119,7 @@ For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the b
 | Mode | Input | Pose Source | Output |
 | --- | --- | --- | --- |
 | `disabled` | webcam / video | fixed identity | depth, semantic overlays, local cloud |
-| `dummy` | webcam / video / sim | synthetic path | demo mapping, trajectory visualization |
+| `dummy` | webcam / video / sim | synthetic path | demo mapping and visualization-only accumulation |
 | `rtabmap` | ROS2 / sim | external SLAM pose | world-aligned mapping and trajectory |
 
 ## Live Webcam Mapping
@@ -140,11 +142,22 @@ Useful flags:
 - `--show-cloud` opens a live Open3D point-cloud window
 - `--save-artifacts` writes `frame_cloud.ply` and trajectory exports on exit
 - `--representation tsdf` switches the live mapper to TSDF fusion
-- `--slam-mode dummy` enables a visualization-only synthetic camera path for a visibly moving accumulated map
+- `--slam-mode dummy` enables visualization-only synthetic pose updates for accumulated-map demos
 - `--slam-mode rtabmap` uses externally tracked RTAB-Map poses when a ROS2 pose source is available
 
 Press `q` or `Esc` to quit.
 The dashboard also shows a prominent `SLAM: ...` badge so the active pose mode is explicit during live runs.
+
+## Pose / SLAM Integration
+
+Trajectory support stays in the repo for:
+
+- `slam.mode: rtabmap` runs with external tracked poses
+- artifact export and quantitative `ATE` / `RPE` evaluation
+- pose-graph bookkeeping and loop-closure structure
+- future real pose sources beyond the current demo modes
+
+The default webcam dashboard intentionally de-emphasizes trajectory output. In `slam.mode: disabled`, pose stays fixed. In `slam.mode: dummy`, Atlas shows synthetic-pose status for visualization-only map accumulation rather than presenting a fake tracked path as a headline result.
 
 ## Configuration
 
@@ -294,6 +307,12 @@ Current generated demo artifacts:
 - [tum_trajectory_plot.png](demo/screenshots/tum_trajectory_plot.png)
 - [pointcloud_vis.png](demo/screenshots/pointcloud_vis.png)
 - [frame_cloud.ply](data/outputs/tum_demo/frame_cloud.ply)
+
+Dataset note:
+
+- a small TUM RGB-D sample is included in [data/samples/tum_freiburg1_xyz](data/samples/tum_freiburg1_xyz)
+- larger datasets are not bundled in the repository due to size
+- the tracked demo artifacts were generated from the TUM RGB-D dataset
 
 Recommended first dataset: TUM RGB-D `fr1/xyz`. The official TUM page recommends the `xyz` series for first experiments, and `fr1/xyz` is the smallest of the suggested starter sequences at about `0.47GB`. Sources: [download page](https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download), [dataset overview](https://cvg.cit.tum.de/data/datasets/rgbd-dataset).
 

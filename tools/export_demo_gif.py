@@ -14,6 +14,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=float, default=8.0, help="Target GIF FPS.")
     parser.add_argument("--max-frames", type=int, default=80, help="Maximum frames to include in the GIF.")
     parser.add_argument("--width", type=int, default=960, help="Resize GIF frames to this width.")
+    parser.add_argument(
+        "--duration-ms",
+        type=int,
+        default=None,
+        help="Explicit per-frame GIF duration in milliseconds. Overrides FPS-derived playback timing.",
+    )
     return parser.parse_args()
 
 
@@ -23,6 +29,7 @@ def export_demo_gif(
     fps: float = 8.0,
     max_frames: int = 80,
     width: int = 960,
+    duration_ms: int | None = None,
 ) -> Path:
     video_path = Path(video_path)
     gif_path = Path(gif_path)
@@ -58,12 +65,12 @@ def export_demo_gif(
         raise RuntimeError(f"No frames were decoded from video: {video_path}")
 
     gif_path.parent.mkdir(parents=True, exist_ok=True)
-    duration_ms = int(round(1000.0 / max(float(fps), 1.0)))
+    frame_duration_ms = int(duration_ms) if duration_ms is not None else int(round(1000.0 / max(float(fps), 1.0)))
     frames[0].save(
         gif_path,
         save_all=True,
         append_images=frames[1:],
-        duration=duration_ms,
+        duration=frame_duration_ms,
         loop=0,
         optimize=False,
     )
@@ -74,7 +81,14 @@ def export_demo_gif(
 
 def main() -> None:
     args = parse_args()
-    out = export_demo_gif(args.video, args.gif, fps=args.fps, max_frames=args.max_frames, width=args.width)
+    out = export_demo_gif(
+        args.video,
+        args.gif,
+        fps=args.fps,
+        max_frames=args.max_frames,
+        width=args.width,
+        duration_ms=args.duration_ms,
+    )
     print(f"GIF: {out}")
 
 
