@@ -8,6 +8,7 @@ import numpy as np
 
 from src.io.base import FrameSource
 from src.io.ros_image import RosImageSubscriber
+from src.io.tum_rgbd import TumRgbdFrameSource
 from src.io.types import FramePacket
 from src.io.video import VideoFrameSource
 
@@ -59,4 +60,6 @@ def create_frame_source(config: dict) -> FrameSource:
             camera_info_topic=config.get("camera_info_topic"),
             timeout_sec=float(config.get("timeout_sec", 5.0)),
         )
+    if mode == "rgbd_dataset":
+        return TumRgbdFrameSource(str(config["source"]), tolerance=float(config.get("association_tolerance", 0.03)))
     raise ValueError(f"Unsupported input mode: {mode}")

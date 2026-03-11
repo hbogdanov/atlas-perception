@@ -14,6 +14,7 @@ camera:
 
 depth:
   depth_model: midas
+  source_mode: estimate
   device: cpu
   input_size: 518
   output_mode: relative_normalized
@@ -87,4 +88,6 @@ output:
   demo_video_fps: 15
   demo_video_width: 1280
   demo_video_height: 720
+  demo_map_projection: auto
+  demo_map_bounds: null
   visualize: false

@@ -64,6 +64,7 @@ def test_build_webcam_runtime_config_applies_live_overrides():
     assert config["output"]["save_pointcloud"] is True
     assert config["output"]["save_trajectory"] is True
 
+
 def test_mode_badge_renders_for_each_slam_mode():
     assert _badge_style_for_mode("disabled")[0] == "SLAM: DISABLED"
     assert _badge_style_for_mode("dummy")[0] == "SLAM: DUMMY"

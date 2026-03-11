@@ -44,6 +44,12 @@ def test_unknown_output_mode_fails_explicitly():
         estimator.predict(np.zeros((1, 1, 3), dtype=np.uint8))
 
 
+def test_prepare_input_depth_preserves_metric_raw_values():
+    estimator = build_estimator("raw", np.array([[1.0]], dtype=np.float32))
+    prepared = estimator.prepare_input_depth(np.array([[2.0, 4.0]], dtype=np.float32))
+    assert np.array_equal(prepared, np.array([[2.0, 4.0]], dtype=np.float32))
+
+
 def test_bilateral_postprocess_changes_depth_when_enabled():
     estimator = build_estimator(
         "raw",

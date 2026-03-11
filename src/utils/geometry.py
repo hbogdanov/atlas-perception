@@ -31,6 +31,11 @@ def depth_to_pointcloud(
     intrinsics: dict,
     stride: int = 4,
 ) -> tuple[np.ndarray, np.ndarray]:
+    depth_map = np.asarray(depth_map, dtype=np.float32)
+    if depth_map.ndim == 3 and depth_map.shape[2] == 1:
+        depth_map = depth_map[:, :, 0]
+    if depth_map.ndim != 2:
+        raise ValueError(f"depth_to_pointcloud expects a 2D depth map, got shape {depth_map.shape}.")
     v_coords, u_coords = np.mgrid[0 : depth_map.shape[0] : stride, 0 : depth_map.shape[1] : stride]
     sampled_depth = depth_map[::stride, ::stride].astype(np.float32)
     sampled_rgb = rgb_image[::stride, ::stride].astype(np.float32) / 255.0

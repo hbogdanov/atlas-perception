@@ -207,6 +207,37 @@ def test_validate_config_rejects_invalid_semantic_settings():
                 "output": {},
             }
         )
+
+
+def test_validate_config_accepts_rgbd_dataset_mode():
+    config = validate_config(
+        {
+            "input": {"mode": "rgbd_dataset", "source": "data/samples/tum_freiburg1_xyz"},
+            "camera": {"fx": 525.0, "fy": 525.0, "cx": 319.5, "cy": 239.5},
+            "depth": {"output_mode": "raw", "source_mode": "input"},
+            "slam": {"mode": "groundtruth"},
+            "mapping": {"stride": 1, "max_points": 10},
+            "ros2": {},
+            "output": {},
+        }
+    )
+    assert config["input"]["mode"] == "rgbd_dataset"
+    assert config["depth"]["source_mode"] == "input"
+
+
+def test_validate_config_rejects_invalid_depth_source_mode():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw", "source_mode": "metricish"},
+                "slam": {"mode": "disabled"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
     with pytest.raises(ValueError):
         validate_config(
             {

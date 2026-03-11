@@ -1,7 +1,6 @@
 input:
-  mode: video
-  source: data/outputs/tum_demo/tum_rgb_demo.mp4
-  loop: true
+  mode: rgbd_dataset
+  source: data/samples/tum_freiburg1_xyz
 
 semantics:
   enabled: true
@@ -11,14 +10,14 @@ semantics:
   confidence: 0.2
   iou: 0.6
 
+depth:
+  source_mode: input
+  output_mode: raw
+  postprocess:
+    enabled: false
+
 slam:
-  mode: dummy
-  path_radius_x: 1.6
-  path_radius_y: 0.9
-  path_frequency: 0.035
-  vertical_amplitude: 0.015
-  vertical_frequency: 0.06
-  heading_lookahead: 0.15
+  mode: groundtruth
 
 ros2:
   enabled: false
@@ -31,3 +30,5 @@ output:
   save_trajectory: true
   output_dir: data/outputs/tum_demo_eval
   demo_video_path: demo/videos/tum_demo.mp4
+  demo_map_projection: xy
+  demo_map_bounds: [-2.5, 2.5, -2.5, 2.5]

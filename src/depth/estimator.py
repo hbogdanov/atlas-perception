@@ -38,6 +38,12 @@ class DepthEstimator:
         depth = self._postprocess_depth(depth, image)
         return self._format_output(depth)
 
+    def prepare_input_depth(self, depth_map: np.ndarray, image: np.ndarray | None = None) -> np.ndarray:
+        depth = np.asarray(depth_map, dtype=np.float32)
+        if image is not None:
+            depth = self._postprocess_depth(depth, image)
+        return self._format_output(depth)
+
     def _load_backend(self):
         backend_cls = get_depth_backend_class(self.model_name)
         return backend_cls(self.config, self.device)

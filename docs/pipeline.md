@@ -19,11 +19,14 @@ At runtime, those stages are driven per frame, then fused across time.
 Input:
 
 - RGB frame from webcam, video, ROS2, Gazebo, or Isaac Sim
+- or RGB-D dataset frame when `input.mode: rgbd_dataset`
 
 Process:
 
 - `src/depth/estimator.py` loads the configured depth backend
 - current built-in backends are MiDaS and Depth Anything
+- `depth.source_mode: estimate` uses the configured monocular backend
+- `depth.source_mode: input` consumes depth supplied by the frame source directly
 - optional post-processing can apply:
   - bilateral filtering
   - guided refinement
@@ -32,6 +35,7 @@ Process:
 Output:
 
 - dense depth map for the current frame
+- for RGB-D dataset runs, that depth can be metric rather than per-frame normalized
 
 Why it matters:
 
@@ -122,6 +126,7 @@ Process:
   - `disabled`
   - `dummy`
   - `rtabmap`
+  - `groundtruth`
 - pose graph bookkeeping records:
   - pose nodes
   - odometry edges
@@ -140,6 +145,7 @@ Why it matters:
 
 - without trajectory, you only have frame-local geometry
 - with trajectory, Atlas can accumulate geometry into a coherent map
+- for TUM RGB-D showcase runs, `groundtruth` mode makes the accumulated map physically grounded instead of following a synthetic demo path
 
 ## End-to-End Flow
 

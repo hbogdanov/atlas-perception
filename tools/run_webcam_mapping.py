@@ -6,6 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 import cv2
+import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -41,6 +42,7 @@ def _badge_style_for_mode(mode: str) -> tuple[str, tuple[int, int, int], tuple[i
     if normalized == "rtabmap":
         return "SLAM: RTABMAP", (231, 248, 238), (35, 122, 69)
     return "SLAM: DISABLED", (240, 240, 240), (90, 90, 90)
+
 
 def _draw_mode_badge(dashboard: np.ndarray, mode: str) -> np.ndarray:
     label, fill_color, border_color = _badge_style_for_mode(mode)

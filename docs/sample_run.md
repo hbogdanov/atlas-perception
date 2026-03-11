@@ -103,7 +103,13 @@ That wrapper runs the TUM preset through `src.main` and exports:
 - `demo/gifs/tum_demo.gif`
 - `demo/screenshots/tum_trajectory_plot.png`
 
-The preset loops the short TUM source clip, runs a longer showcase window, and uses `slam.mode: dummy` only as a synthetic pose source for visualization-only map accumulation. The primary demo video and GIF emphasize RGB, depth, semantic-overlay, and fused-mapping output rather than presenting a fake tracked trajectory as the headline result.
+The preset now runs directly on the included TUM RGB-D sample with:
+
+- `input.mode: rgbd_dataset`
+- `depth.source_mode: input`
+- `slam.mode: groundtruth`
+
+So the saved cloud and trajectory are driven by metric dataset depth plus dataset ground-truth pose instead of a normalized monocular estimate and a scripted path.
 
 Live webcam showcase:
 
@@ -178,6 +184,16 @@ Observed runtime summary from that run:
 
 If using Torch Hub backends for the first time, allow time for model download or provide `depth.local_weights_path` in config.
 
+## Metric RGB-D Demo Notes
+
+For TUM RGB-D showcase runs, Atlas now keeps the map panel comparable across runs by using fixed map bounds in the composite demo renderer instead of auto-rescaling each cloud independently.
+
+That means:
+
+- different TUM scenes stay in the same visual scale
+- large rooms look larger than desk scenes
+- the README comparison GIFs no longer collapse into the same normalized presentation
+
 ## Recommended Dataset
 
 Use the TUM RGB-D `fr1/xyz` sequence first. TUM explicitly recommends the `xyz` series for first experiments, and `fr1/xyz` is the smaller starter sequence. Official sources:
@@ -205,6 +221,12 @@ This will produce:
 - `data/outputs/tum_demo/frame_cloud.ply`
 
 If you want to compare raw backend output against refined output, disable `depth.postprocess.enabled` in an override config and rerun the same command.
+
+If you want a metric artifact path instead of monocular relative depth, run the full RGB-D preset:
+
+```bash
+python tools/run_demo.py --dataset tum
+```
 
 You can also copy the first two into `demo/screenshots/` for README assets:
 

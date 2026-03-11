@@ -77,7 +77,11 @@ class DemoVideoRecorder:
                 runtime.get("semantic_summary", "disabled"),
             )
         )
-        map_vis = map_image if map_image is not None else DemoVideoRecorder._build_map_panel(cell_w, cell_h, pose, metrics, runtime)
+        map_vis = (
+            map_image
+            if map_image is not None
+            else DemoVideoRecorder._build_map_panel(cell_w, cell_h, pose, metrics, runtime)
+        )
         rgb_title = runtime.get("rgb_title", "Simulator Camera Feed")
         depth_title = runtime.get("depth_title", "Depth Output")
         semantic_title = runtime.get("semantic_title", "Semantic Overlay")
@@ -183,13 +187,33 @@ class DemoVideoRecorder:
         if points is not None and getattr(points, "size", 0):
             points = np.asarray(points, dtype=np.float32)
             colors = np.asarray(colors, dtype=np.float32) if colors is not None and getattr(colors, "size", 0) else None
-            axes = points[:, [0, 2]]
-            spans = axes.max(axis=0) - axes.min(axis=0)
-            if float(spans[1]) < 1e-4:
+            projection = str(runtime.get("map_projection", "auto")).lower()
+            if projection == "xy":
                 axes = points[:, [0, 1]]
+                pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
+                heading_2d = np.array([pose.matrix[0, 0], pose.matrix[1, 0]], dtype=np.float32)
+            elif projection == "xz":
+                axes = points[:, [0, 2]]
+                pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
+                heading_2d = np.array([pose.matrix[0, 2], pose.matrix[2, 2]], dtype=np.float32)
+            else:
+                axes = points[:, [0, 2]]
+                spans = axes.max(axis=0) - axes.min(axis=0)
+                if float(spans[1]) < 1e-4:
+                    axes = points[:, [0, 1]]
+                    pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
+                    heading_2d = np.array([pose.matrix[0, 0], pose.matrix[1, 0]], dtype=np.float32)
+                else:
+                    pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
+                    heading_2d = np.array([pose.matrix[0, 2], pose.matrix[2, 2]], dtype=np.float32)
             height_values = points[:, 2] if points.shape[1] >= 3 else axes[:, 1]
-            mins = axes.min(axis=0)
-            maxs = axes.max(axis=0)
+            configured_bounds = runtime.get("map_bounds")
+            if isinstance(configured_bounds, (list, tuple)) and len(configured_bounds) == 4:
+                mins = np.array([float(configured_bounds[0]), float(configured_bounds[2])], dtype=np.float32)
+                maxs = np.array([float(configured_bounds[1]), float(configured_bounds[3])], dtype=np.float32)
+            else:
+                mins = axes.min(axis=0)
+                maxs = axes.max(axis=0)
             spans = np.maximum(maxs - mins, 1e-6)
             margin = 28.0
             plot_w = width - 2 * margin
@@ -199,12 +223,7 @@ class DemoVideoRecorder:
             y_offset = (plot_h - spans[1] * scale) * 0.5
             projected_x = ((axes[:, 0] - mins[0]) * scale + margin + x_offset).astype(np.int32)
             projected_y = (height - 58.0 - ((axes[:, 1] - mins[1]) * scale + y_offset)).astype(np.int32)
-            valid = (
-                (projected_x >= 24)
-                & (projected_x < width - 24)
-                & (projected_y >= 48)
-                & (projected_y < height - 28)
-            )
+            valid = (projected_x >= 24) & (projected_x < width - 24) & (projected_y >= 48) & (projected_y < height - 28)
             projected_x = projected_x[valid]
             projected_y = projected_y[valid]
             height_values = height_values[valid]
@@ -222,18 +241,10 @@ class DemoVideoRecorder:
                 panel[projected_y, projected_x] = rgb
             else:
                 panel[projected_y, projected_x] = (55, 110, 220)
-            pose_marker = np.array([pose.matrix[0, 3], pose.matrix[2, 3]], dtype=np.float32)
-            if float(spans[1]) < 1e-4:
-                pose_marker = np.array([pose.matrix[0, 3], pose.matrix[1, 3]], dtype=np.float32)
             pose_x = int((pose_marker[0] - mins[0]) * scale + margin + x_offset)
             pose_y = int(height - 58.0 - ((pose_marker[1] - mins[1]) * scale + y_offset))
             if 24 <= pose_x < width - 24 and 48 <= pose_y < height - 28:
                 cv2.circle(panel, (pose_x, pose_y), 6, (0, 0, 220), -1)
-                rotation = pose.matrix[:3, :3]
-                forward = rotation[:, 2] if rotation.shape == (3, 3) else np.array([0.0, 0.0, 1.0], dtype=np.float32)
-                heading_2d = np.array([forward[0], forward[2]], dtype=np.float32)
-                if float(spans[1]) < 1e-4:
-                    heading_2d = np.array([rotation[0, 0], rotation[1, 0]], dtype=np.float32)
                 norm = float(np.linalg.norm(heading_2d))
                 if norm > 1e-6:
                     heading_2d = heading_2d / norm

@@ -149,6 +149,19 @@ class RtabmapBackend(SlamBackend):
         self._latest = PoseEstimate(T_world_camera=transform, timestamp=timestamp, tracking_ok=True)
 
 
+class GroundTruthBackend(SlamBackend):
+    def update(self, rgb, depth=None, timestamp=None, pose_hint: np.ndarray | None = None) -> PoseEstimate:
+        del rgb, depth
+        if pose_hint is None:
+            pose = identity_pose(float(timestamp or 0.0))
+            pose.tracking_ok = False
+            return pose
+        return PoseEstimate(
+            T_world_camera=np.asarray(pose_hint, dtype=np.float32).copy(),
+            timestamp=float(timestamp or 0.0),
+        )
+
+
 class SlamWrapper:
     """Integration boundary for visual odometry or external SLAM systems."""
 
@@ -163,8 +176,17 @@ class SlamWrapper:
         )
         self.backend = self._build_backend()
 
-    def update(self, image: np.ndarray, depth_map: np.ndarray, timestamp: float) -> PoseEstimate:
-        pose = self.backend.update(image, depth_map, timestamp)
+    def update(
+        self,
+        image: np.ndarray,
+        depth_map: np.ndarray,
+        timestamp: float,
+        pose_hint: np.ndarray | None = None,
+    ) -> PoseEstimate:
+        try:
+            pose = self.backend.update(image, depth_map, timestamp, pose_hint=pose_hint)
+        except TypeError:
+            pose = self.backend.update(image, depth_map, timestamp)
         self.trajectory.append(pose)
         self.pose_graph.append(pose)
         return pose
@@ -187,4 +209,6 @@ class SlamWrapper:
             return DummyBackend(self.config)
         if self.mode == "rtabmap":
             return RtabmapBackend(self.config)
+        if self.mode == "groundtruth":
+            return GroundTruthBackend(self.config)
         raise ValueError(f"Unsupported SLAM mode: {self.mode}")

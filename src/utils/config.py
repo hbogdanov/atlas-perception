@@ -6,9 +6,10 @@ from pathlib import Path
 import yaml
 
 REQUIRED_SECTIONS = ("input", "camera", "depth", "slam", "mapping", "ros2", "output")
-VALID_INPUT_MODES = {"webcam", "video", "ros2"}
+VALID_INPUT_MODES = {"webcam", "video", "ros2", "rgbd_dataset"}
 VALID_DEPTH_OUTPUT_MODES = {"relative_normalized", "raw"}
-VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap"}
+VALID_DEPTH_SOURCE_MODES = {"estimate", "input"}
+VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap", "groundtruth"}
 VALID_MAPPING_REPRESENTATIONS = {"pointcloud", "tsdf"}
 VALID_SEMANTIC_BACKENDS = {"disabled", "yolov8_seg"}
 
@@ -40,8 +41,8 @@ def validate_config(config: dict) -> dict:
     input_mode = str(config["input"].get("mode", "")).lower()
     if input_mode not in VALID_INPUT_MODES:
         raise ValueError(f"input.mode must be one of {sorted(VALID_INPUT_MODES)}, got {input_mode!r}.")
-    if input_mode in {"video", "ros2"} and not config["input"].get("source"):
-        raise ValueError("input.source is required when input.mode is 'video' or 'ros2'.")
+    if input_mode in {"video", "ros2", "rgbd_dataset"} and not config["input"].get("source"):
+        raise ValueError("input.source is required when input.mode is 'video', 'ros2', or 'rgbd_dataset'.")
 
     fx = float(config["camera"].get("fx", 0.0))
     fy = float(config["camera"].get("fy", 0.0))
@@ -55,6 +56,10 @@ def validate_config(config: dict) -> dict:
     output_mode = str(config["depth"].get("output_mode", "")).lower()
     if output_mode not in VALID_DEPTH_OUTPUT_MODES:
         raise ValueError(f"depth.output_mode must be one of {sorted(VALID_DEPTH_OUTPUT_MODES)}, got {output_mode!r}.")
+    source_mode = str(config["depth"].get("source_mode", "estimate")).lower()
+    if source_mode not in VALID_DEPTH_SOURCE_MODES:
+        raise ValueError(f"depth.source_mode must be one of {sorted(VALID_DEPTH_SOURCE_MODES)}, got {source_mode!r}.")
+    config["depth"]["source_mode"] = source_mode
     depth_model = str(config["depth"].get("depth_model", config["depth"].get("model", "midas"))).lower()
     config["depth"]["depth_model"] = depth_model
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))

@@ -99,11 +99,19 @@ def run() -> None:
             timestamp = frame.timestamp
             rgb = frame.image
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
+            depth_source_mode = str(config["depth"].get("source_mode", "estimate")).lower()
             with Timer() as depth_timer:
-                depth_map = depth_estimator.predict(rgb)
+                if depth_source_mode == "input":
+                    if frame.depth_map is None:
+                        raise RuntimeError(
+                            "depth.source_mode is 'input' but the active frame source " "does not provide depth."
+                        )
+                    depth_map = depth_estimator.prepare_input_depth(frame.depth_map, rgb)
+                else:
+                    depth_map = depth_estimator.predict(rgb)
             with Timer() as semantic_timer:
                 semantic_prediction = semantic_segmenter.predict(rgb)
-            pose = slam.update(rgb, depth_map, timestamp)
+            pose = slam.update(rgb, depth_map, timestamp, pose_hint=frame.pose_matrix)
             with Timer() as mapping_timer:
                 point_cloud = mapper.integrate(depth_map, rgb, pose, semantics=semantic_prediction)
 
@@ -148,13 +156,19 @@ def run() -> None:
                         "map_title": "Fused Point Cloud Map",
                         "semantic_mode": semantic_mode,
                         "semantic_summary": semantic_summary,
+                        "map_projection": str(config["output"].get("demo_map_projection", "auto")),
+                        "map_bounds": config["output"].get("demo_map_bounds"),
                     },
                     semantic_image=semantic_image,
                     map_image=DemoVideoRecorder.render_topdown_map(
                         point_cloud,
                         pose,
                         metrics,
-                        {"slam_mode": str(config["slam"]["mode"])},
+                        {
+                            "slam_mode": str(config["slam"]["mode"]),
+                            "map_projection": str(config["output"].get("demo_map_projection", "auto")),
+                            "map_bounds": config["output"].get("demo_map_bounds"),
+                        },
                     ),
                 )
 

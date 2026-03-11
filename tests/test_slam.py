@@ -52,6 +52,15 @@ def test_unknown_backend_mode_fails_explicitly():
         SlamWrapper({"mode": "visual_odometry"})
 
 
+def test_groundtruth_mode_uses_pose_hint():
+    slam = SlamWrapper({"mode": "groundtruth"})
+    pose_matrix = np.eye(4, dtype=np.float32)
+    pose_matrix[0, 3] = 1.25
+    pose = slam.update(None, None, 1.0, pose_hint=pose_matrix)
+    assert pose.matrix[0, 3] == pytest.approx(1.25)
+    assert pose.tracking_ok is True
+
+
 def test_rtabmap_mode_without_ros_runtime_fails_cleanly():
     slam = SlamWrapper({"mode": "rtabmap"})
     with pytest.raises(RuntimeError):

@@ -56,3 +56,24 @@ def test_create_frame_source_passes_video_loop_flag(monkeypatch):
     create_frame_source({"mode": "video", "source": "demo.mp4", "loop": True})
 
     assert created == {"path": "demo.mp4", "loop": True}
+
+
+def test_create_frame_source_uses_tum_rgbd_source(monkeypatch):
+    created = {}
+
+    def fake_tum_source(path: str, tolerance: float = 0.03):
+        created["path"] = path
+        created["tolerance"] = tolerance
+        return object()
+
+    monkeypatch.setattr("src.io.camera.TumRgbdFrameSource", fake_tum_source)
+
+    create_frame_source(
+        {
+            "mode": "rgbd_dataset",
+            "source": "data/samples/tum_freiburg1_xyz",
+            "association_tolerance": 0.05,
+        }
+    )
+
+    assert created == {"path": "data/samples/tum_freiburg1_xyz", "tolerance": 0.05}

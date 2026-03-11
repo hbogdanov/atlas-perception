@@ -6,21 +6,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-import cv2
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from tools.export_demo_gif import export_demo_gif
-
 
 DEFAULT_DATASETS = [
-    "rgbd_dataset_freiburg1_desk",
-    "rgbd_dataset_freiburg1_desk2",
-    "rgbd_dataset_freiburg1_room",
-    "rgbd_dataset_freiburg2_desk",
-    "rgbd_dataset_freiburg3_long_office_household",
+    "data/raw/tum/fr1_desk",
+    "data/raw/tum/fr1_room",
+    "data/raw/tum/fr3_long_office_household",
 ]
 
 
@@ -32,7 +26,6 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_DATASETS,
         help="Top-level dataset directories to process.",
     )
-    parser.add_argument("--source-frames", type=int, default=120, help="RGB frames to pack into the source MP4.")
     parser.add_argument("--demo-frames", type=int, default=180, help="Frames to run through Atlas for each showcase.")
     return parser.parse_args()
 
@@ -44,40 +37,30 @@ def resolve_dataset_root(path: Path) -> Path:
     return path
 
 
-def build_rgb_demo_video(dataset_root: Path, out_path: Path, max_frames: int) -> Path:
-    rgb_dir = dataset_root / "rgb"
-    frames = sorted(rgb_dir.glob("*.png"))[: max(1, int(max_frames))]
-    if not frames:
-        raise RuntimeError(f"No RGB frames found under {rgb_dir}")
-
-    first = cv2.imread(str(frames[0]))
-    if first is None:
-        raise RuntimeError(f"Failed to read RGB frame {frames[0]}")
-    height, width = first.shape[:2]
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    writer = cv2.VideoWriter(str(out_path), cv2.VideoWriter_fourcc(*"mp4v"), 15.0, (width, height))
-    if not writer.isOpened():
-        raise RuntimeError(f"Failed to create video writer at {out_path}")
-    try:
-        for frame_path in frames:
-            frame = cv2.imread(str(frame_path))
-            if frame is None:
-                raise RuntimeError(f"Failed to read RGB frame {frame_path}")
-            writer.write(frame)
-    finally:
-        writer.release()
-    return out_path
+def dataset_slug(path: Path) -> str:
+    name = path.name
+    tum_aliases = {
+        "fr1_desk": "freiburg1_desk",
+        "fr1_room": "freiburg1_room",
+        "fr3_long_office_household": "freiburg3_long_office_household",
+        "fr1_desk2": "freiburg1_desk2",
+        "fr2_desk": "freiburg2_desk",
+    }
+    if name in tum_aliases:
+        return tum_aliases[name]
+    if name.startswith("rgbd_dataset_freiburg"):
+        return name.replace("rgbd_dataset_freiburg", "freiburg")
+    return name
 
 
-def write_override_config(path: Path, source_video: Path, output_dir: Path, demo_video_path: Path) -> Path:
+def write_override_config(path: Path, dataset_root: Path, output_dir: Path, demo_video_path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
             [
                 "input:",
-                "  mode: video",
-                f"  source: {source_video.as_posix()}",
-                "  loop: true",
+                "  mode: rgbd_dataset",
+                f"  source: {dataset_root.as_posix()}",
                 "",
                 "semantics:",
                 "  enabled: true",
@@ -87,14 +70,14 @@ def write_override_config(path: Path, source_video: Path, output_dir: Path, demo
                 "  confidence: 0.2",
                 "  iou: 0.6",
                 "",
+                "depth:",
+                "  source_mode: input",
+                "  output_mode: raw",
+                "  postprocess:",
+                "    enabled: false",
+                "",
                 "slam:",
-                "  mode: dummy",
-                "  path_radius_x: 1.6",
-                "  path_radius_y: 0.9",
-                "  path_frequency: 0.035",
-                "  vertical_amplitude: 0.015",
-                "  vertical_frequency: 0.06",
-                "  heading_lookahead: 0.15",
+                "  mode: groundtruth",
                 "",
                 "ros2:",
                 "  enabled: false",
@@ -107,6 +90,8 @@ def write_override_config(path: Path, source_video: Path, output_dir: Path, demo
                 "  save_trajectory: true",
                 f"  output_dir: {output_dir.as_posix()}",
                 f"  demo_video_path: {demo_video_path.as_posix()}",
+                "  demo_map_projection: xy",
+                "  demo_map_bounds: [-4.0, 8.0, -4.0, 4.0]",
                 "",
             ]
         ),
@@ -115,11 +100,13 @@ def write_override_config(path: Path, source_video: Path, output_dir: Path, demo
     return path
 
 
-def generate_showcase(dataset_name: str, source_frames: int, demo_frames: int) -> dict[str, str]:
-    top_level = REPO_ROOT / dataset_name
+def generate_showcase(dataset_name: str, demo_frames: int) -> dict[str, str]:
+    from tools.export_demo_gif import export_demo_gif
+
+    dataset_path = Path(dataset_name)
+    top_level = dataset_path if dataset_path.is_absolute() else REPO_ROOT / dataset_path
     dataset_root = resolve_dataset_root(top_level)
-    slug = dataset_name.replace("rgbd_dataset_", "")
-    source_video = REPO_ROOT / "data" / "outputs" / "dataset_showcase" / slug / f"{slug}_rgb_demo.mp4"
+    slug = dataset_slug(top_level)
     output_dir = REPO_ROOT / "data" / "outputs" / "dataset_showcase" / slug / "eval"
     demo_video = REPO_ROOT / "demo" / "videos" / f"{slug}_demo.mp4"
     demo_gif = REPO_ROOT / "demo" / "gifs" / f"{slug}_demo.gif"
@@ -127,8 +114,7 @@ def generate_showcase(dataset_name: str, source_frames: int, demo_frames: int) -
     trajectory_screenshot = REPO_ROOT / "demo" / "screenshots" / f"{slug}_trajectory_plot.png"
     override_config = REPO_ROOT / "configs" / "generated" / f"{slug}_showcase.yaml"
 
-    build_rgb_demo_video(dataset_root, source_video, max_frames=source_frames)
-    write_override_config(override_config, source_video, output_dir, demo_video)
+    write_override_config(override_config, dataset_root, output_dir, demo_video)
 
     command = [
         sys.executable,
@@ -167,7 +153,7 @@ def main() -> None:
     args = parse_args()
     generated = []
     for dataset_name in args.datasets:
-        generated.append(generate_showcase(dataset_name, source_frames=args.source_frames, demo_frames=args.demo_frames))
+        generated.append(generate_showcase(dataset_name, demo_frames=args.demo_frames))
     for item in generated:
         print(f"{item['dataset_name']}: {item['gif_path']}")
 

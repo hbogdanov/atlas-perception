@@ -15,7 +15,7 @@ Use these docs in this order:
 The repository config split is:
 
 - `configs/default.yaml`: safe baseline, ROS2 off, SLAM disabled
-- `configs/tum_demo.yaml`: looping TUM showcase run with dummy pose integration and GIF/video export
+- `configs/tum_demo.yaml`: TUM RGB-D metric showcase run with ground-truth depth and ground-truth pose
 - `configs/webcam_mapping.yaml`: live webcam mapping preset for laptop-camera demos
 - `configs/tum_main_eval.yaml`: reproducible TUM evaluation and artifact export
 - `configs/gazebo_demo.yaml`: Gazebo ROS2 demo with dummy trajectory
@@ -52,7 +52,9 @@ Depending on config flags, Atlas can write:
 Atlas currently documents and supports:
 
 - camera ingestion from webcam, video, and ROS2 image topics
+- TUM-style RGB-D dataset ingestion for metric mapping demos
 - plugin-based depth backend selection through `depth.depth_model`, with built-in MiDaS and Depth Anything backends
+- dual depth-source modes through `depth.source_mode`, allowing either monocular estimation or dataset-provided metric depth
 - optional semantic segmentation through `semantics.backend`, with a YOLOv8 path for semantic overlays and semantic point clouds
 - quantitative monocular depth evaluation on TUM RGB-D with `AbsRel`, `RMSE`, `delta1`, and FPS reporting
 - quantitative trajectory evaluation with `ATE` and `RPE` against TUM-format ground truth
@@ -62,6 +64,7 @@ Atlas currently documents and supports:
 - selectable point-cloud or TSDF volumetric mapping
 - ROS2 publishing for depth, pose, path, and point cloud outputs
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`
+- dataset-provided pose consumption through `slam.mode: groundtruth`
 - pose-graph export with simple loop-closure constraints
 - composite demo video generation from the main pipeline
 - one-command live webcam mapping through `python run_webcam_mapping.py`
@@ -70,5 +73,5 @@ Atlas currently documents and supports:
 Atlas does not yet claim:
 
 - calibrated metric monocular reconstruction by default
-- a fully optimized built-in SLAM backend beyond dummy motion, pose-graph bookkeeping, and external RTAB-Map pose consumption
+- a fully optimized built-in SLAM backend beyond dummy motion, pose-graph bookkeeping, external RTAB-Map pose consumption, and dataset ground-truth pose playback
 - deep simulator-specific integrations beyond topic and launch adaptation

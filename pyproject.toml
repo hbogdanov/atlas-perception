@@ -32,10 +32,45 @@ package-dir = {"" = "."}
 [tool.black]
 line-length = 120
 target-version = ["py310"]
+extend-exclude = '''
+(
+  ^/\.cache/
+  | ^/\.codex_eval_tmp/
+  | ^/\.codex_tmp_test/
+  | ^/\.codex_traj_tmp/
+  | ^/\.pytest_cache/
+  | ^/\.pytest_tmp/
+  | ^/\.pytest_tmp_demo/
+  | ^/\.pytest_tmp_local/
+  | ^/test-cache/
+  | ^/test-tmp/
+  | ^/pytest-cache-files-.*/
+  | ^/tmp8m5z8nm2/
+  | ^/tmp9_rtw1mw/
+)
+'''
 
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+extend-exclude = [
+  ".cache",
+  ".codex_eval_tmp",
+  ".codex_tmp_test",
+  ".codex_traj_tmp",
+  ".pytest_cache",
+  ".pytest_tmp",
+  ".pytest_tmp_demo",
+  ".pytest_tmp_local",
+  "test-cache",
+  "test-tmp",
+  "pytest-cache-files-azh8d4t9",
+  "pytest-cache-files-e5r01ivp",
+  "pytest-cache-files-moqwf7im",
+  "pytest-cache-files-xpur572f",
+  "tmp8m5z8nm2",
+  "tmp9_rtw1mw",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
