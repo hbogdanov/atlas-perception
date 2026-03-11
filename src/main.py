@@ -114,6 +114,14 @@ def run() -> None:
 
             save_demo_snapshots(output_dir, rgb, depth_map, semantic_prediction, config, saved_snapshots)
             if demo_video is not None:
+                semantic_mode = "disabled"
+                semantic_image = None
+                semantic_summary = "disabled"
+                if semantic_prediction is not None:
+                    labeled_pixels = int((semantic_prediction.labels >= 0).sum())
+                    semantic_mode = "detected" if labeled_pixels > 0 else "empty"
+                    semantic_summary = f"{labeled_pixels} labeled px" if labeled_pixels > 0 else "0 recognized objects"
+                    semantic_image = semantic_prediction.overlay(rgb)
                 metrics = {
                     "depth_ms": depth_timer.result.milliseconds,
                     "semantic_ms": semantic_timer.result.milliseconds,
@@ -138,12 +146,10 @@ def run() -> None:
                         "pointcloud_topic": str(config["ros2"].get("pointcloud_topic", "/atlas/pointcloud")),
                         "semantic_title": "Semantic Overlay",
                         "map_title": "Fused Point Cloud Map",
+                        "semantic_mode": semantic_mode,
+                        "semantic_summary": semantic_summary,
                     },
-                    semantic_image=(
-                        semantic_prediction.overlay(rgb)
-                        if semantic_prediction is not None and (semantic_prediction.labels >= 0).any()
-                        else None
-                    ),
+                    semantic_image=semantic_image,
                     map_image=DemoVideoRecorder.render_topdown_map(
                         point_cloud,
                         pose,

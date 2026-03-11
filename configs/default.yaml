@@ -36,7 +36,7 @@ depth:
 semantics:
   enabled: false
   backend: yolov8_seg
-  model: yolov8n-seg.pt
+  model: models/checkpoints/yolov8n-seg.pt
   device: cpu
   confidence: 0.25
   iou: 0.7

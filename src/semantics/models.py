@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import os
+from pathlib import Path
 
 import cv2
 import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _ensure_yolo_config_dir() -> Path:
+    config_dir = Path(os.environ.get("YOLO_CONFIG_DIR", REPO_ROOT / ".cache" / "ultralytics"))
+    config_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["YOLO_CONFIG_DIR"] = str(config_dir)
+    return config_dir
 
 
 def default_palette() -> dict[int, tuple[int, int, int]]:
@@ -40,6 +51,7 @@ class DisabledSemanticBackend(SemanticBackend):
 class YoloV8SegBackend(SemanticBackend):
     def __init__(self, config: dict) -> None:
         super().__init__(config)
+        _ensure_yolo_config_dir()
         try:
             from ultralytics import YOLO
         except ImportError as exc:  # pragma: no cover
@@ -47,7 +59,13 @@ class YoloV8SegBackend(SemanticBackend):
                 "YOLOv8 segmentation requires the 'ultralytics' package. Install it to enable semantics."
             ) from exc
         model_name = str(config.get("model", "yolov8n-seg.pt"))
-        self.model = YOLO(model_name)
+        try:
+            self.model = YOLO(model_name)
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                f"Failed to load YOLOv8 segmentation weights from {model_name!r}. "
+                "Ensure the weights file exists locally."
+            ) from exc
         self.device = str(config.get("device", "cpu"))
         self.confidence = float(config.get("confidence", 0.25))
         self.iou = float(config.get("iou", 0.7))
@@ -97,7 +115,11 @@ class SemanticPrediction:
         semantic = self.colorize()
         blended = image.copy()
         mask = self.labels >= 0
-        blended[mask] = cv2.addWeighted(image[mask], 1.0 - alpha, semantic[mask], alpha, 0.0)
+        if np.any(mask):
+            image_pixels = image[mask].astype(np.float32)
+            semantic_pixels = semantic[mask].astype(np.float32)
+            mixed = image_pixels * (1.0 - alpha) + semantic_pixels * alpha
+            blended[mask] = np.clip(mixed, 0, 255).astype(np.uint8)
         return blended
 
     def sample(self, stride: int) -> tuple[np.ndarray, np.ndarray]:

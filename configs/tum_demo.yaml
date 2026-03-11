@@ -3,6 +3,14 @@ input:
   source: data/outputs/tum_demo/tum_rgb_demo.mp4
   loop: true
 
+semantics:
+  enabled: true
+  backend: yolov8_seg
+  model: models/checkpoints/yolov8n-seg.pt
+  device: cpu
+  confidence: 0.2
+  iou: 0.6
+
 slam:
   mode: dummy
   path_radius_x: 1.6

@@ -69,7 +69,14 @@ class DemoVideoRecorder:
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
         depth_vis = colorize_depth(depth_map)
-        semantic_vis = semantic_image if semantic_image is not None else DemoVideoRecorder._build_semantic_panel()
+        semantic_vis = (
+            semantic_image
+            if semantic_image is not None
+            else DemoVideoRecorder._build_semantic_panel(
+                runtime.get("semantic_mode", "disabled"),
+                runtime.get("semantic_summary", "disabled"),
+            )
+        )
         map_vis = map_image if map_image is not None else DemoVideoRecorder._build_map_panel(cell_w, cell_h, pose, metrics, runtime)
         rgb_title = runtime.get("rgb_title", "Simulator Camera Feed")
         depth_title = runtime.get("depth_title", "Depth Output")
@@ -112,13 +119,21 @@ class DemoVideoRecorder:
         return DemoVideoRecorder._build_map_panel(width, height, pose, metrics, runtime)
 
     @staticmethod
-    def _build_semantic_panel() -> np.ndarray:
+    def _build_semantic_panel(mode: str = "disabled", summary: str = "disabled") -> np.ndarray:
         panel = np.full((320, 520, 3), 248, dtype=np.uint8)
-        lines = [
-            ("Semantic segmentation disabled", 0.9, (70, 70, 70), 2),
-            ("Enable semantics.backend to render", 0.68, (95, 95, 95), 1),
-            ("live semantic overlays here.", 0.68, (95, 95, 95), 1),
-        ]
+        if mode == "empty":
+            lines = [
+                ("No recognized objects", 0.9, (70, 70, 70), 2),
+                ("YOLOv8 ran, but this frame produced", 0.66, (95, 95, 95), 1),
+                ("no COCO segmentation masks.", 0.66, (95, 95, 95), 1),
+                (summary, 0.62, (110, 110, 110), 1),
+            ]
+        else:
+            lines = [
+                ("Semantic segmentation disabled", 0.9, (70, 70, 70), 2),
+                ("Enable semantics.backend to render", 0.68, (95, 95, 95), 1),
+                ("live semantic overlays here.", 0.68, (95, 95, 95), 1),
+            ]
         y = 118
         for text, scale, color, thickness in lines:
             cv2.putText(panel, text, (38, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness)
