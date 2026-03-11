@@ -68,7 +68,14 @@ class DemoVideoRecorder:
         cell_h = height // 2
 
         canvas = np.full((height, width, 3), 245, dtype=np.uint8)
-        depth_vis = colorize_depth(depth_map)
+        depth_vis = colorize_depth(
+            depth_map,
+            min_depth=_optional_float(runtime.get("depth_viz_min")),
+            max_depth=_optional_float(runtime.get("depth_viz_max")),
+            invert=bool(runtime.get("depth_viz_invert", True)),
+            fill_invalid=bool(runtime.get("depth_viz_fill_invalid", False)),
+            smooth_ksize=int(runtime.get("depth_viz_smooth_ksize", 0)),
+        )
         semantic_vis = (
             semantic_image
             if semantic_image is not None
@@ -283,3 +290,9 @@ class DemoVideoRecorder:
             cv2.putText(panel, chunk, (x, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (45, 45, 45), 2)
             x += 120
         return panel
+
+
+def _optional_float(value) -> float | None:
+    if value is None:
+        return None
+    return float(value)

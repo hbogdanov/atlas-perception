@@ -139,3 +139,21 @@ def test_colorize_depth_uses_robust_percentiles_for_outliers():
     depth = np.array([[0.6, 0.7, 0.8, 100.0]], dtype=np.float32)
     colorized = colorize_depth(depth)
     assert not np.array_equal(colorized[0, 0], colorized[0, 1])
+
+
+def test_colorize_depth_respects_fixed_metric_range():
+    stable_a = colorize_depth(np.array([[1.0, 2.0]], dtype=np.float32), min_depth=0.4, max_depth=5.5)
+    stable_b = colorize_depth(np.array([[1.0, 8.0]], dtype=np.float32), min_depth=0.4, max_depth=5.5)
+    assert np.array_equal(stable_a[0, 0], stable_b[0, 0])
+
+
+def test_colorize_depth_can_fill_invalid_holes_for_display():
+    colorized = colorize_depth(
+        np.array([[1.0, 0.0, 1.2]], dtype=np.float32),
+        min_depth=0.4,
+        max_depth=5.5,
+        fill_invalid=True,
+    )
+    left = colorized[0, 0].astype(np.int32)
+    middle = colorized[0, 1].astype(np.int32)
+    assert np.linalg.norm(middle - left) < 120
