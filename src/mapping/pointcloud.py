@@ -96,8 +96,10 @@ class MappingBackend(ABC):
         raise NotImplementedError
 
     def export_ply(self, path: Path) -> None:
-        _require_open3d()
         path.parent.mkdir(parents=True, exist_ok=True)
+        if o3d is None:
+            _write_ascii_ply(path, self.data())
+            return
         o3d.io.write_point_cloud(str(path), self.to_open3d())
 
 
@@ -269,6 +271,16 @@ class PointCloudBuilder:
 
     def export_semantic_ply(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        if o3d is None:
+            cloud = self.data()
+            _write_ascii_ply(
+                path,
+                PointCloudData(
+                    points=cloud.points,
+                    colors=cloud.semantic_colors if cloud.semantic_colors is not None else cloud.colors,
+                ),
+            )
+            return
         cloud = self.data().to_open3d(use_semantic_colors=True)
         o3d.io.write_point_cloud(str(path), cloud)
 
@@ -290,3 +302,28 @@ def _require_open3d() -> None:
         raise RuntimeError(
             "Open3D is required for TSDF or point cloud export. Install dependencies from requirements.txt."
         )
+
+
+def _write_ascii_ply(path: Path, cloud: PointCloudData) -> None:
+    """Export point clouds without making basic RGB-D artifacts depend on Open3D."""
+    points = np.asarray(cloud.points, dtype=np.float32)
+    colors = np.clip(np.asarray(cloud.colors, dtype=np.float32) * 255.0, 0, 255).astype(np.uint8)
+    if points.shape[0] != colors.shape[0]:
+        raise ValueError("Point-cloud export requires one color for every point.")
+    header = [
+        "ply",
+        "format ascii 1.0",
+        f"element vertex {points.shape[0]}",
+        "property float x",
+        "property float y",
+        "property float z",
+        "property uchar red",
+        "property uchar green",
+        "property uchar blue",
+        "end_header",
+    ]
+    rows = [
+        f"{point[0]:.8f} {point[1]:.8f} {point[2]:.8f} {color[0]} {color[1]} {color[2]}"
+        for point, color in zip(points, colors, strict=True)
+    ]
+    path.write_text("\n".join([*header, *rows, ""]), encoding="ascii")

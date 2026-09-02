@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from bisect import bisect_left
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator
+from typing import Generator, TypeVar
 
 import cv2
 import numpy as np
@@ -11,6 +12,19 @@ from src.depth.metrics import decode_tum_depth_png
 from src.io.base import FrameSource
 from src.io.types import FramePacket
 from src.ros2.transforms import quaternion_to_rotation_matrix
+
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class AssociationReport:
+    source_count: int
+    target_count: int
+    matched_pairs: int
+    unmatched_source: int
+    unmatched_target: int
+    mean_timestamp_error: float | None
+    max_timestamp_error: float | None
 
 
 def _read_tum_index(path: Path) -> list[tuple[float, str]]:
@@ -78,6 +92,43 @@ def _associate_nearest(
     return associated
 
 
+def associate_tum_entries(
+    source: list[tuple[float, T]], target: list[tuple[float, T]], tolerance: float
+) -> tuple[list[tuple[float, T, float, T]], AssociationReport]:
+    """Associate ordered TUM streams once, preserving the timestamp of each observation."""
+    target_timestamps = [entry[0] for entry in target]
+    used_targets: set[int] = set()
+    pairs: list[tuple[float, T, float, T]] = []
+    errors: list[float] = []
+    for source_timestamp, source_value in source:
+        index = bisect_left(target_timestamps, source_timestamp)
+        candidates = (index - 1, index)
+        best_index = min(
+            (candidate for candidate in candidates if 0 <= candidate < len(target) and candidate not in used_targets),
+            key=lambda candidate: abs(target_timestamps[candidate] - source_timestamp),
+            default=None,
+        )
+        if best_index is None:
+            continue
+        target_timestamp, target_value = target[best_index]
+        error = abs(target_timestamp - source_timestamp)
+        if error > tolerance:
+            continue
+        used_targets.add(best_index)
+        pairs.append((source_timestamp, source_value, target_timestamp, target_value))
+        errors.append(error)
+    report = AssociationReport(
+        source_count=len(source),
+        target_count=len(target),
+        matched_pairs=len(pairs),
+        unmatched_source=len(source) - len(pairs),
+        unmatched_target=len(target) - len(used_targets),
+        mean_timestamp_error=float(np.mean(errors)) if errors else None,
+        max_timestamp_error=float(np.max(errors)) if errors else None,
+    )
+    return pairs, report
+
+
 class TumRgbdFrameSource(FrameSource):
     def __init__(self, dataset_root: str | Path, tolerance: float = 0.03) -> None:
         self.dataset_root = Path(dataset_root)
@@ -92,14 +143,14 @@ class TumRgbdFrameSource(FrameSource):
         self._pose_entries = _read_tum_groundtruth(self.dataset_root / "groundtruth.txt")
         if not self._rgb_entries or not self._depth_entries:
             raise RuntimeError(f"Expected rgb.txt and depth.txt entries under {self.dataset_root}")
-        self._depth_pairs = _associate_nearest(self._rgb_entries, self._depth_entries, self.tolerance)
+        self._depth_pairs, self.depth_association = associate_tum_entries(
+            self._rgb_entries, self._depth_entries, self.tolerance
+        )
         self._pose_pairs = _associate_nearest(self._rgb_entries, self._pose_entries, self.tolerance)
 
     def frames(self) -> Generator[FramePacket, None, None]:
         pose_by_timestamp = {timestamp: pose for timestamp, _, pose in self._pose_pairs}
-        for timestamp, rgb_rel_path, depth_rel_path in self._depth_pairs:
-            if depth_rel_path is None:
-                continue
+        for timestamp, rgb_rel_path, _, depth_rel_path in self._depth_pairs:
             rgb_path = self.dataset_root / rgb_rel_path
             depth_path = self.dataset_root / str(depth_rel_path)
             rgb = cv2.imread(str(rgb_path))

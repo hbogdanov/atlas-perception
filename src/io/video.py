@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from time import time
-
 import cv2
 
 from src.io.base import FrameSource
@@ -23,7 +21,12 @@ class VideoFrameSource(FrameSource):
                     self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
                 break
-            yield FramePacket(image=frame, timestamp=time())
+            timestamp = float(self._capture.get(cv2.CAP_PROP_POS_MSEC)) / 1000.0
+            if timestamp <= 0.0:
+                fps = float(self._capture.get(cv2.CAP_PROP_FPS))
+                frame_index = float(self._capture.get(cv2.CAP_PROP_POS_FRAMES))
+                timestamp = frame_index / fps if fps > 0.0 else frame_index
+            yield FramePacket(image=frame, timestamp=timestamp)
 
     def close(self) -> None:
         self._capture.release()

@@ -6,6 +6,7 @@ import json
 import sys
 from pathlib import Path
 from time import perf_counter
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -14,9 +15,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.depth.estimator import DepthEstimator
 from src.depth.metrics import align_depth_scale, compute_depth_metrics, decode_tum_depth_png
+from src.io.tum_rgbd import AssociationReport, _read_tum_index, associate_tum_entries
 from src.utils.config import load_config
+
+if TYPE_CHECKING:
+    from src.depth.estimator import DepthEstimator
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,29 +38,27 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def list_tum_pairs(dataset_root: Path) -> list[tuple[Path, Path]]:
+def list_tum_pairs(dataset_root: Path, tolerance: float = 0.03) -> tuple[list[tuple[Path, Path]], AssociationReport]:
     rgb_dir = dataset_root / "rgb"
     depth_dir = dataset_root / "depth"
     if not rgb_dir.is_dir() or not depth_dir.is_dir():
         raise RuntimeError(f"Expected TUM dataset with rgb/ and depth/ under {dataset_root}.")
 
-    depth_by_stem = {path.stem: path for path in depth_dir.glob("*.png")}
-    pairs: list[tuple[Path, Path]] = []
-    for rgb_path in sorted(rgb_dir.glob("*.png")):
-        depth_path = depth_by_stem.get(rgb_path.stem)
-        if depth_path is not None:
-            pairs.append((rgb_path, depth_path))
+    rgb_entries = _read_tum_index(dataset_root / "rgb.txt")
+    depth_entries = _read_tum_index(dataset_root / "depth.txt")
+    associations, report = associate_tum_entries(rgb_entries, depth_entries, tolerance)
+    pairs = [(dataset_root / rgb_path, dataset_root / depth_path) for _, rgb_path, _, depth_path in associations]
     if not pairs:
         raise RuntimeError(f"No matching TUM RGB/depth PNG pairs found under {dataset_root}.")
-    return pairs
+    return pairs, report
 
 
 def evaluate_tum_depth(
     dataset_root: Path,
-    estimator: DepthEstimator,
+    estimator: "DepthEstimator",
     limit: int = 0,
 ) -> dict[str, object]:
-    pairs = list_tum_pairs(dataset_root)
+    pairs, association = list_tum_pairs(dataset_root)
     if limit > 0:
         pairs = pairs[:limit]
 
@@ -90,6 +92,15 @@ def evaluate_tum_depth(
         "dataset": "tum_rgbd",
         "dataset_root": str(dataset_root),
         "frames_evaluated": len(frame_metrics),
+        "association": {
+            "rgb_frames": association.source_count,
+            "depth_frames": association.target_count,
+            "matched_pairs": association.matched_pairs,
+            "unmatched_rgb": association.unmatched_source,
+            "unmatched_depth": association.unmatched_target,
+            "mean_timestamp_error": association.mean_timestamp_error,
+            "max_timestamp_error": association.max_timestamp_error,
+        },
         "abs_rel": abs_rel,
         "rmse": rmse,
         "delta1": delta1,
@@ -132,6 +143,8 @@ def write_outputs(summary: dict[str, object], output_json: Path, output_csv: Pat
 def main() -> None:
     args = parse_args()
     config = load_config(args.config, args.override_config)
+    from src.depth.estimator import DepthEstimator
+
     estimator = DepthEstimator(config["depth"])
     summary = evaluate_tum_depth(Path(args.dataset_root), estimator, limit=args.limit)
     write_outputs(summary, Path(args.output_json), Path(args.output_csv))

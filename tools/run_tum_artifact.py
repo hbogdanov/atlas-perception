@@ -11,7 +11,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.depth.estimator import DepthEstimator
+from src.depth.input_depth import InputDepthProcessor
+from src.depth.metrics import decode_tum_depth_png
 from src.depth.visualize import colorize_depth
 from src.mapping.pointcloud import PointCloudBuilder
 from src.slam.wrapper import SlamWrapper
@@ -21,6 +22,7 @@ from src.utils.config import load_config
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate Atlas demo artifacts from a single TUM RGB frame.")
     parser.add_argument("--rgb", required=True, help="Path to a TUM RGB frame PNG.")
+    parser.add_argument("--depth", default=None, help="Optional matching TUM uint16 depth PNG for input-depth runs.")
     parser.add_argument("--config", default="configs/default.yaml", help="Base config path.")
     parser.add_argument("--override-config", default=None, help="Optional override config path.")
     parser.add_argument("--out-dir", default="data/outputs/tum_demo", help="Output directory.")
@@ -38,11 +40,21 @@ def main() -> None:
     if image is None:
         raise RuntimeError(f"Failed to read image: {rgb_path}")
 
-    depth_estimator = DepthEstimator(config["depth"])
     slam = SlamWrapper({"mode": "disabled"})
     mapper = PointCloudBuilder(config["camera"], config["mapping"])
 
-    depth_map = depth_estimator.predict(image)
+    depth_source_mode = str(config["depth"].get("source_mode", "estimate")).lower()
+    if depth_source_mode == "input":
+        if args.depth is None:
+            raise RuntimeError("--depth is required when depth.source_mode is 'input'.")
+        raw_depth = cv2.imread(str(args.depth), cv2.IMREAD_UNCHANGED)
+        if raw_depth is None:
+            raise RuntimeError(f"Failed to read depth frame: {args.depth}")
+        depth_map = InputDepthProcessor(config["depth"]).prepare(decode_tum_depth_png(raw_depth), image)
+    else:
+        from src.depth.estimator import DepthEstimator
+
+        depth_map = DepthEstimator(config["depth"]).predict(image)
     pose = slam.update(image, depth_map, 0.0)
     mapper.integrate(depth_map, image, pose)
 

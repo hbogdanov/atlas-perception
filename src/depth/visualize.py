@@ -15,10 +15,13 @@ def normalize_depth_for_display(depth_map: np.ndarray) -> np.ndarray:
     normalized[valid] = 1.0 - normalized[valid]
 
     if np.any(~valid):
-        depth_uint8 = np.clip(normalized * 255.0, 0, 255).astype(np.uint8)
-        invalid_mask = (~valid).astype(np.uint8) * 255
-        depth_uint8 = cv2.inpaint(depth_uint8, invalid_mask, 3, cv2.INPAINT_TELEA)
-        normalized = depth_uint8.astype(np.float32) / 255.0
+        if normalized.ndim != 2 or min(normalized.shape) < 2:
+            normalized[~valid] = float(np.median(normalized[valid]))
+        else:
+            depth_uint8 = np.clip(normalized * 255.0, 0, 255).astype(np.uint8)
+            invalid_mask = (~valid).astype(np.uint8) * 255
+            depth_uint8 = cv2.inpaint(depth_uint8, invalid_mask, 3, cv2.INPAINT_TELEA)
+            normalized = depth_uint8.astype(np.float32) / 255.0
     return normalized
 
 

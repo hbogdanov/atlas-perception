@@ -1,6 +1,15 @@
 input:
-  mode: video
-  source: data/outputs/tum_demo/tum_rgb_demo.mp4
+  mode: rgbd_dataset
+  source: data/samples/tum_freiburg1_xyz
+
+depth:
+  source_mode: input
+  output_mode: raw
+  postprocess:
+    enabled: false
+
+slam:
+  mode: groundtruth
 
 ros2:
   enabled: false

@@ -15,7 +15,6 @@ def test_pointcloud_to_occupancy_quantizes_points():
 
 
 def test_pointcloud_builder_exports_ply(tmp_path: Path):
-    pytest.importorskip("open3d")
     builder = PointCloudBuilder(
         {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
         {"stride": 1, "max_points": 100},

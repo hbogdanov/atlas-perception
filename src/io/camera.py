@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from time import time
+from time import perf_counter
 from typing import Generator, Iterable
 
 import cv2
@@ -26,7 +26,7 @@ class CameraFrameSource(FrameSource):
             ok, frame = self._capture.read()
             if not ok:
                 break
-            yield FramePacket(image=frame, timestamp=time())
+            yield FramePacket(image=frame, timestamp=perf_counter())
 
     def close(self) -> None:
         self._capture.release()
@@ -38,7 +38,7 @@ class StaticFrameSource(FrameSource):
 
     def frames(self) -> Generator[FramePacket, None, None]:
         for frame in self._frames:
-            yield FramePacket(image=frame, timestamp=time())
+            yield FramePacket(image=frame, timestamp=perf_counter())
 
     def close(self) -> None:
         return None

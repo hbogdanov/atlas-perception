@@ -7,7 +7,7 @@ from time import perf_counter
 import cv2
 import numpy as np
 
-from src.depth.estimator import DepthEstimator
+from src.depth.input_depth import InputDepthProcessor
 from src.depth.visualize import colorize_depth, normalize_depth_for_display
 from src.io.camera import create_frame_source
 from src.mapping.pointcloud import PointCloudBuilder
@@ -19,6 +19,7 @@ from src.utils.config import load_config
 from src.utils.demo_video import DemoVideoRecorder
 from src.utils.logger import get_logger
 from src.utils.perf import Timer
+from src.utils.run_metadata import build_run_manifest, write_json
 
 LOGGER = get_logger(__name__)
 
@@ -85,7 +86,16 @@ def run() -> None:
     demo_video: DemoVideoRecorder | None = None
     try:
         source = create_frame_source(config["input"])
-        depth_estimator = DepthEstimator(config["depth"])
+        depth_source_mode = str(config["depth"].get("source_mode", "estimate")).lower()
+        depth_estimator = None
+        input_depth_processor = None
+        if depth_source_mode == "input":
+            input_depth_processor = InputDepthProcessor(config["depth"])
+        else:
+            # Keep metric RGB-D runs independent of Torch and pretrained weights.
+            from src.depth.estimator import DepthEstimator
+
+            depth_estimator = DepthEstimator(config["depth"])
         semantic_segmenter = SemanticSegmenter(config.get("semantics"))
         slam = SlamWrapper(config["slam"])
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
@@ -108,15 +118,18 @@ def run() -> None:
             timestamp = frame.timestamp
             rgb = frame.image
             mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
-            depth_source_mode = str(config["depth"].get("source_mode", "estimate")).lower()
             with Timer() as depth_timer:
                 if depth_source_mode == "input":
                     if frame.depth_map is None:
                         raise RuntimeError(
                             "depth.source_mode is 'input' but the active frame source " "does not provide depth."
                         )
-                    depth_map = depth_estimator.prepare_input_depth(frame.depth_map, rgb)
+                    if input_depth_processor is None:
+                        raise RuntimeError("Input depth processor was not initialized.")
+                    depth_map = input_depth_processor.prepare(frame.depth_map, rgb)
                 else:
+                    if depth_estimator is None:
+                        raise RuntimeError("Depth estimator was not initialized.")
                     depth_map = depth_estimator.predict(rgb)
             with Timer() as semantic_timer:
                 semantic_prediction = semantic_segmenter.predict(rgb)
@@ -224,6 +237,21 @@ def run() -> None:
         demo_video.close()
     total_elapsed = max(perf_counter() - start_time, 1e-6)
     if processed:
+        association = getattr(source, "depth_association", None)
+        write_json(Path(output_dir / "config.json"), config)
+        write_json(Path(output_dir / "manifest.json"), build_run_manifest(config, Path.cwd(), association))
+        write_json(
+            Path(output_dir / "runtime_metrics.json"),
+            {
+                "frames_processed": processed,
+                "total_elapsed_seconds": total_elapsed,
+                "avg_depth_ms": sum(depth_times_ms) / len(depth_times_ms),
+                "avg_semantic_ms": sum(semantic_times_ms) / len(semantic_times_ms),
+                "avg_mapping_ms": sum(mapping_times_ms) / len(mapping_times_ms),
+                "avg_fps": processed / total_elapsed,
+                "point_count": latest_point_count,
+            },
+        )
         LOGGER.info(
             "summary avg_depth_ms=%.2f avg_semantic_ms=%.2f avg_mapping_ms=%.2f avg_fps=%.2f points=%s",
             sum(depth_times_ms) / len(depth_times_ms),

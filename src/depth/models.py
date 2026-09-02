@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
-import torch
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - exercised by dependency-light pipeline tests
+    torch = None
 
 
 class DepthBackend:
-    def __init__(self, config: dict, device: torch.device) -> None:
+    def __init__(self, config: dict, device: Any) -> None:
         self.config = config
         self.device = device
 
@@ -48,7 +53,9 @@ class TorchHubDepthBackend(DepthBackend):
     model_arg: str
     transform_arg: str
 
-    def __init__(self, config: dict, device: torch.device) -> None:
+    def __init__(self, config: dict, device: Any) -> None:
+        if torch is None:
+            raise RuntimeError("Torch is required to run a monocular depth backend.")
         super().__init__(config, device)
         weights_dir = Path(config.get("weights_dir", "models"))
         weights_dir.mkdir(parents=True, exist_ok=True)

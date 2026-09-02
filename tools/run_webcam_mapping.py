@@ -12,7 +12,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.depth.estimator import DepthEstimator
 from src.io.camera import create_frame_source
 from src.main import ensure_output_dir
 from src.mapping.pointcloud import PointCloudBuilder
@@ -190,6 +189,8 @@ class LivePointCloudViewer:
 
 
 def run_webcam_mapping(args: argparse.Namespace | None = None) -> Path:
+    from src.depth.estimator import DepthEstimator
+
     parsed = args or parse_args()
     config = build_runtime_config(parsed)
     output_dir = ensure_output_dir(config["output"]["output_dir"])

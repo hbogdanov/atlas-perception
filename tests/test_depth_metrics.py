@@ -36,7 +36,7 @@ def test_decode_tum_depth_png_rejects_non_uint16():
         decode_tum_depth_png(np.array([[1.0]], dtype=np.float32))
 
 
-def test_list_tum_pairs_matches_rgb_and_depth_stems(tmp_path: Path):
+def test_list_tum_pairs_matches_timestamps_from_tum_indexes(tmp_path: Path):
     rgb_dir = tmp_path / "rgb"
     depth_dir = tmp_path / "depth"
     rgb_dir.mkdir()
@@ -44,9 +44,13 @@ def test_list_tum_pairs_matches_rgb_and_depth_stems(tmp_path: Path):
 
     rgb = np.zeros((2, 2, 3), dtype=np.uint8)
     depth = np.zeros((2, 2), dtype=np.uint16)
-    cv2.imwrite(str(rgb_dir / "1.0.png"), rgb)
-    cv2.imwrite(str(depth_dir / "1.0.png"), depth)
-    cv2.imwrite(str(rgb_dir / "2.0.png"), rgb)
+    cv2.imwrite(str(rgb_dir / "1.000.png"), rgb)
+    cv2.imwrite(str(depth_dir / "1.015.png"), depth)
+    cv2.imwrite(str(rgb_dir / "2.000.png"), rgb)
+    (tmp_path / "rgb.txt").write_text("1.000 rgb/1.000.png\n2.000 rgb/2.000.png\n", encoding="utf-8")
+    (tmp_path / "depth.txt").write_text("1.015 depth/1.015.png\n", encoding="utf-8")
 
-    pairs = list_tum_pairs(tmp_path)
-    assert pairs == [(rgb_dir / "1.0.png", depth_dir / "1.0.png")]
+    pairs, report = list_tum_pairs(tmp_path, tolerance=0.03)
+    assert pairs == [(rgb_dir / "1.000.png", depth_dir / "1.015.png")]
+    assert report.matched_pairs == 1
+    assert report.unmatched_source == 1

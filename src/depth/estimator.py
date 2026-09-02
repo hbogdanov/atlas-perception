@@ -4,7 +4,11 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-import torch
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - exercised by dependency-light pipeline tests
+    torch = None
 
 from src.depth.models import get_depth_backend_class
 
@@ -19,6 +23,8 @@ class DepthEstimator:
     """Load and run a pretrained monocular depth backend."""
 
     def __init__(self, config: dict) -> None:
+        if torch is None:
+            raise RuntimeError("Torch is required when depth.source_mode is 'estimate'.")
         self.config = config
         self.model_name = str(config.get("depth_model", config.get("model", "midas")))
         self.device = torch.device(config.get("device", "cpu"))
