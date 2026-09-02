@@ -6,8 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
+from src.mapping.confidence import compute_depth_confidence
 from src.slam.odometry import PoseEstimate
-from src.utils.geometry import depth_to_pointcloud, transform_points
+from src.utils.geometry import depth_to_pointcloud, depth_to_pointcloud_with_confidence, transform_points
 
 try:
     import open3d as o3d
@@ -22,6 +23,7 @@ class PointCloudData:
     semantic_labels: np.ndarray | None = None
     semantic_colors: np.ndarray | None = None
     class_names: dict[int, str] | None = None
+    confidence: np.ndarray | None = None
 
     def to_ros_pointcloud2(self, header, point_cloud2_module, point_field_type):
         fields = [
@@ -102,6 +104,9 @@ class MappingBackend(ABC):
             return
         o3d.io.write_point_cloud(str(path), self.to_open3d())
 
+    def diagnostics(self) -> dict[str, float | int]:
+        return {}
+
 
 class PointCloudFusionBackend(MappingBackend):
     def __init__(self, camera_config: dict, mapping_config: dict) -> None:
@@ -111,6 +116,8 @@ class PointCloudFusionBackend(MappingBackend):
         self._semantic_labels = np.empty((0,), dtype=np.int32)
         self._semantic_colors = np.empty((0, 3), dtype=np.float32)
         self._class_names: dict[int, str] = {}
+        self._confidence = np.empty((0,), dtype=np.float32)
+        self._last_diagnostics: dict[str, float | int] = {}
 
     @property
     def points(self) -> np.ndarray:
@@ -124,11 +131,36 @@ class PointCloudFusionBackend(MappingBackend):
         stride = int(self.mapping_config.get("stride", 4))
         semantic_fusion = bool(self.mapping_config.get("semantic_color_fusion", True))
         color_image = semantics.colorize() if semantics is not None and semantic_fusion else rgb
-        sample_points, sample_colors = depth_to_pointcloud(depth_map, color_image, self.camera_config, stride=stride)
+        confidence_config = self.mapping_config.get("confidence_fusion", {})
+        confidence_enabled = bool(confidence_config.get("enabled", False))
+        if confidence_enabled:
+            confidence_map = compute_depth_confidence(depth_map, float(confidence_config.get("edge_scale", 0.15)))
+            sample_points, sample_colors, sample_confidence = depth_to_pointcloud_with_confidence(
+                depth_map,
+                color_image,
+                self.camera_config,
+                confidence_map,
+                stride=stride,
+                min_confidence=float(confidence_config.get("min_confidence", 0.2)),
+            )
+        else:
+            sample_points, sample_colors = depth_to_pointcloud(
+                depth_map, color_image, self.camera_config, stride=stride
+            )
+            sample_confidence = np.ones((sample_points.shape[0],), dtype=np.float32)
         transformed = transform_points(sample_points, pose.matrix)
         max_points = int(self.mapping_config.get("max_points", 100000))
         self._points = np.vstack([self._points, transformed])[-max_points:]
         self._colors = np.vstack([self._colors, sample_colors])[-max_points:]
+        self._confidence = np.hstack([self._confidence, sample_confidence])[-max_points:]
+        total_samples = int(depth_map[::stride, ::stride].size)
+        self._last_diagnostics = {
+            "confidence_enabled": int(confidence_enabled),
+            "sampled_pixels": total_samples,
+            "accepted_points": int(sample_points.shape[0]),
+            "rejected_points": total_samples - int(sample_points.shape[0]),
+            "mean_confidence": float(np.mean(sample_confidence)) if sample_confidence.size else 0.0,
+        }
         if semantics is not None:
             semantic_labels, semantic_colors = semantics.sample(stride=stride)
             self._semantic_labels = np.hstack([self._semantic_labels, semantic_labels])[-max_points:]
@@ -145,7 +177,11 @@ class PointCloudFusionBackend(MappingBackend):
             semantic_labels=labels,
             semantic_colors=semantic_colors,
             class_names=self._class_names.copy(),
+            confidence=self._confidence.copy(),
         )
+
+    def diagnostics(self) -> dict[str, float | int]:
+        return self._last_diagnostics.copy()
 
     def to_open3d(self):
         _require_open3d()
@@ -288,6 +324,9 @@ class PointCloudBuilder:
         if not hasattr(self.backend, "export_mesh"):
             raise RuntimeError("Mesh export is only available for TSDF mapping.")
         self.backend.export_mesh(path)
+
+    def diagnostics(self) -> dict[str, float | int]:
+        return self.backend.diagnostics()
 
     def _build_backend(self) -> MappingBackend:
         if self.representation == "pointcloud":

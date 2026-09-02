@@ -16,7 +16,7 @@ try:
     import rclpy
     from builtin_interfaces.msg import Time as RosTime
     from cv_bridge import CvBridge
-    from geometry_msgs.msg import PoseStamped
+    from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
     from nav_msgs.msg import Path as RosPath
     from rclpy.node import Node
     from sensor_msgs.msg import Image, PointCloud2, PointField
@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover
     rclpy = None
     CvBridge = None
     PoseStamped = None
+    PoseWithCovarianceStamped = None
     RosPath = None
     Node = None
     Image = None
@@ -49,6 +50,7 @@ class AtlasRosBridge:
         self.pose_publisher = TopicPublisher(self.config["pose_topic"])
         self.path_publisher = TopicPublisher(self.config["path_topic"])
         self.pointcloud_publisher = TopicPublisher(self.config["pointcloud_topic"])
+        self.visual_pose_publisher = TopicPublisher(self.config.get("visual_pose_topic", "/atlas/visual_pose"))
         if self.enabled and rclpy is not None:
             if not rclpy.ok():
                 rclpy.init(args=None)
@@ -57,6 +59,7 @@ class AtlasRosBridge:
             self.pose_publisher.attach_ros(self._node, PoseStamped)
             self.path_publisher.attach_ros(self._node, RosPath)
             self.pointcloud_publisher.attach_ros(self._node, PointCloud2)
+            self.visual_pose_publisher.attach_ros(self._node, PoseWithCovarianceStamped)
 
     def publish_depth(self, depth_map: np.ndarray, timestamp: float) -> None:
         header = self._header_from_timestamp(timestamp)
@@ -142,6 +145,42 @@ class AtlasRosBridge:
             "points": point_cloud.points,
             "colors": getattr(point_cloud, "colors", np.empty((0, 3), dtype=np.float32)),
             "semantic_labels": getattr(point_cloud, "semantic_labels", None),
+        }
+
+    def publish_visual_pose(self, measurement) -> None:
+        rotation = measurement.T_world_camera[:3, :3]
+        quaternion = rotation_matrix_to_quaternion(rotation)
+        header = self._header_from_timestamp(measurement.timestamp)
+        if self._node is not None and PoseWithCovarianceStamped is not None:
+            message = PoseWithCovarianceStamped()
+            message.header = header
+            message.pose.pose.position.x = float(measurement.T_world_camera[0, 3])
+            message.pose.pose.position.y = float(measurement.T_world_camera[1, 3])
+            message.pose.pose.position.z = float(measurement.T_world_camera[2, 3])
+            message.pose.pose.orientation.x = float(quaternion[0])
+            message.pose.pose.orientation.y = float(quaternion[1])
+            message.pose.pose.orientation.z = float(quaternion[2])
+            message.pose.pose.orientation.w = float(quaternion[3])
+            message.pose.covariance = measurement.covariance.reshape(-1).astype(float).tolist()
+            self.visual_pose_publisher.publish(message)
+        else:
+            self.visual_pose_publisher.publish(
+                {
+                    "header": header,
+                    "pose": measurement.T_world_camera,
+                    "covariance": measurement.covariance,
+                    "reprojection_rmse": measurement.reprojection_rmse,
+                    "inlier_count": measurement.inlier_count,
+                    "landmark_ids": measurement.landmark_ids,
+                    "quaternion_xyzw": quaternion,
+                }
+            )
+        self.published["visual_pose"] = {
+            "header": header,
+            "pose": measurement.T_world_camera,
+            "covariance": measurement.covariance,
+            "reprojection_rmse": measurement.reprojection_rmse,
+            "inlier_count": measurement.inlier_count,
         }
 
     def shutdown(self) -> None:

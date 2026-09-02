@@ -64,6 +64,7 @@ def validate_config(config: dict) -> dict:
     config["depth"]["depth_model"] = depth_model
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))
     _validate_semantics(config.get("semantics", {}))
+    _validate_pose_perturbation(config.get("evaluation", {}).get("pose_perturbation", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
@@ -91,6 +92,15 @@ def validate_config(config: dict) -> dict:
             raise ValueError("mapping.tsdf_sdf_trunc must be greater than 0.")
         if depth_trunc <= 0.0:
             raise ValueError("mapping.tsdf_depth_trunc must be greater than 0.")
+    confidence_fusion = config["mapping"].get("confidence_fusion", {})
+    if confidence_fusion and not isinstance(confidence_fusion, dict):
+        raise ValueError("mapping.confidence_fusion must be a dictionary when provided.")
+    if confidence_fusion:
+        min_confidence = float(confidence_fusion.get("min_confidence", 0.2))
+        if not 0.0 <= min_confidence <= 1.0:
+            raise ValueError("mapping.confidence_fusion.min_confidence must be between 0 and 1.")
+        if float(confidence_fusion.get("edge_scale", 0.15)) <= 0.0:
+            raise ValueError("mapping.confidence_fusion.edge_scale must be greater than 0.")
 
     return config
 
@@ -133,6 +143,21 @@ def _validate_semantics(semantics: dict) -> None:
         iou = float(semantics["iou"])
         if not 0.0 <= iou <= 1.0:
             raise ValueError("semantics.iou must be between 0 and 1 inclusive.")
+
+
+def _validate_pose_perturbation(settings: dict) -> None:
+    if not settings:
+        return
+    if not isinstance(settings, dict):
+        raise ValueError("evaluation.pose_perturbation must be a dictionary when provided.")
+    for key in ("translation_std_m", "rotation_std_deg"):
+        if float(settings.get(key, 0.0)) < 0.0:
+            raise ValueError(f"evaluation.pose_perturbation.{key} must be non-negative.")
+    dropout_probability = float(settings.get("dropout_probability", 0.0))
+    if not 0.0 <= dropout_probability <= 1.0:
+        raise ValueError("evaluation.pose_perturbation.dropout_probability must be between 0 and 1.")
+    if int(settings.get("latency_frames", 0)) < 0:
+        raise ValueError("evaluation.pose_perturbation.latency_frames must be non-negative.")
 
 
 def load_config(path: str | Path, override_path: str | Path | None = None) -> dict:

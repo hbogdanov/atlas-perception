@@ -5,6 +5,7 @@ import json
 import platform
 import subprocess
 import sys
+from csv import DictWriter
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,16 @@ def git_commit(repo_root: Path) -> str | None:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_associations_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def build_run_manifest(config: dict, repo_root: Path, association: Any = None) -> dict[str, Any]:

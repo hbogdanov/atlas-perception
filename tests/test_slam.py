@@ -3,6 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from src.slam.odometry import PoseEstimate
+from src.slam.trajectory import _select_projection_axes
 from src.slam.wrapper import RtabmapBackend, SlamWrapper
 
 
@@ -128,6 +130,14 @@ def test_trajectory_export_writes_plot(tmp_path: Path):
     assert (tmp_path / "trajectory_plot.png").exists()
     assert (tmp_path / "pose_graph.json").exists()
     assert (tmp_path / "pose_graph_edges.csv").exists()
+
+
+def test_trajectory_plot_auto_selects_the_plane_with_the_largest_motion():
+    poses = [PoseEstimate(np.eye(4, dtype=np.float32), 0.0), PoseEstimate(np.eye(4, dtype=np.float32), 1.0)]
+    poses[1].matrix[0, 3] = 3.0
+    poses[1].matrix[2, 3] = 4.0
+
+    assert _select_projection_axes(poses, "auto") == (0, 2, "X", "Z")
 
 
 def test_pose_graph_tracks_odometry_edges():

@@ -11,7 +11,11 @@ def normalize_depth_for_display(depth_map: np.ndarray) -> np.ndarray:
     if not np.any(valid):
         return normalized
 
-    normalized[valid] = cv2.normalize(depth[valid], None, 0.0, 1.0, cv2.NORM_MINMAX).reshape(-1)
+    lower, upper = np.percentile(depth[valid], [2.0, 98.0])
+    if upper - lower < 1e-6:
+        normalized[valid] = 0.5
+    else:
+        normalized[valid] = np.clip((depth[valid] - lower) / (upper - lower), 0.0, 1.0)
     normalized[valid] = 1.0 - normalized[valid]
 
     if np.any(~valid):

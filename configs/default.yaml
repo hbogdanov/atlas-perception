@@ -42,6 +42,15 @@ semantics:
   confidence: 0.25
   iou: 0.7
 
+evaluation:
+  pose_perturbation:
+    enabled: false
+    translation_std_m: 0.0
+    rotation_std_deg: 0.0
+    dropout_probability: 0.0
+    latency_frames: 0
+    seed: 0
+
 slam:
   mode: disabled
   frame_stride: 1
@@ -59,6 +68,10 @@ mapping:
   representation: pointcloud
   max_points: 150000
   stride: 2
+  confidence_fusion:
+    enabled: false
+    edge_scale: 0.15
+    min_confidence: 0.2
   semantic_color_fusion: true
   tsdf_voxel_length: 0.04
   tsdf_sdf_trunc: 0.08
@@ -73,6 +86,7 @@ ros2:
   pose_topic: /atlas/pose
   path_topic: /atlas/path
   pointcloud_topic: /atlas/pointcloud
+  visual_pose_topic: /atlas/visual_pose
   frame_id: atlas_camera
 
 output:

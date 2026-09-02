@@ -1,0 +1,32 @@
+input:
+  mode: rgbd_dataset
+  source: data/samples/tum_freiburg1_xyz
+
+depth:
+  source_mode: estimate
+  output_mode: raw
+
+slam:
+  mode: groundtruth
+
+evaluation:
+  pose_perturbation:
+    enabled: true
+    translation_std_m: 0.03
+    rotation_std_deg: 1.5
+    dropout_probability: 0.0
+    latency_frames: 0
+    seed: 17
+
+semantics:
+  enabled: false
+
+ros2:
+  enabled: false
+
+output:
+  output_dir: data/outputs/benchmarks/tum_estimated_depth_perturbed_pose
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
+  save_pointcloud: true
+  save_trajectory: true

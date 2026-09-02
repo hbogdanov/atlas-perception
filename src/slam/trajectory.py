@@ -40,13 +40,14 @@ class Trajectory:
         ]
         path.write_text(header + "\n".join(rows) + ("\n" if rows else ""), encoding="utf-8")
 
-    def render_plot(self, size: int = 800) -> np.ndarray:
+    def render_plot(self, size: int = 800, plane: str = "auto") -> np.ndarray:
         canvas = np.full((size, size, 3), 255, dtype=np.uint8)
         if not self.poses:
             cv2.putText(canvas, "No trajectory", (size // 3, size // 2), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 0), 2)
             return canvas
 
-        points = np.array([[pose.matrix[0, 3], pose.matrix[1, 3]] for pose in self.poses], dtype=np.float32)
+        axis_a, axis_b, label_a, label_b = _select_projection_axes(self.poses, plane)
+        points = np.array([[pose.matrix[axis_a, 3], pose.matrix[axis_b, 3]] for pose in self.poses], dtype=np.float32)
         mins = points.min(axis=0)
         maxs = points.max(axis=0)
         spans = np.maximum(maxs - mins, 1e-6)
@@ -84,10 +85,18 @@ class Trajectory:
             canvas, "end", (projected[-1][0] + 8, projected[-1][1] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 160), 1
         )
         current_pose = self.poses[-1].matrix
-        cv2.putText(canvas, "Camera Pose In World XY", (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (20, 20, 20), 2)
         cv2.putText(
             canvas,
-            f"X forward: {current_pose[0, 3]:.2f} m",
+            f"Camera Pose In World {label_a}{label_b}",
+            (20, 34),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (20, 20, 20),
+            2,
+        )
+        cv2.putText(
+            canvas,
+            f"{label_a}: {current_pose[axis_a, 3]:.2f} m",
             (20, size - 44),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
@@ -96,17 +105,17 @@ class Trajectory:
         )
         cv2.putText(
             canvas,
-            f"Y lateral: {current_pose[1, 3]:.2f} m",
+            f"{label_b}: {current_pose[axis_b, 3]:.2f} m",
             (20, size - 18),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
             (35, 35, 35),
             1,
         )
-        cv2.putText(canvas, "Y (m)", (12, plot_top - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (55, 55, 55), 1)
+        cv2.putText(canvas, f"{label_b} (m)", (12, plot_top - 16), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (55, 55, 55), 1)
         cv2.putText(
             canvas,
-            "X (m)",
+            f"{label_a} (m)",
             (plot_right - 52, size - 18),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
@@ -115,6 +124,18 @@ class Trajectory:
         )
         return canvas
 
-    def export_plot(self, path: Path, size: int = 800) -> None:
-        canvas = self.render_plot(size=size)
+    def export_plot(self, path: Path, size: int = 800, plane: str = "auto") -> None:
+        canvas = self.render_plot(size=size, plane=plane)
         cv2.imwrite(str(path), canvas)
+
+
+def _select_projection_axes(poses: list[PoseEstimate], plane: str) -> tuple[int, int, str, str]:
+    candidates = {"xy": (0, 1, "X", "Y"), "xz": (0, 2, "X", "Z"), "yz": (1, 2, "Y", "Z")}
+    normalized = plane.lower()
+    if normalized in candidates:
+        return candidates[normalized]
+    if normalized != "auto":
+        raise ValueError("Trajectory plot plane must be one of: auto, xy, xz, yz.")
+    translation = np.array([pose.matrix[:3, 3] for pose in poses], dtype=np.float32)
+    spans = np.ptp(translation, axis=0)
+    return max(candidates.values(), key=lambda axes: spans[axes[0]] + spans[axes[1]])

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from src.depth.metrics import align_depth_scale, compute_depth_metrics, decode_tum_depth_png
+from src.depth.metrics import align_depth_scale, align_depth_scale_shift, compute_depth_metrics, decode_tum_depth_png
 from tools.evaluate_depth import list_tum_pairs
 
 
@@ -21,8 +21,21 @@ def test_compute_depth_metrics_returns_expected_values():
     metrics = compute_depth_metrics(prediction, target)
     assert metrics.abs_rel == pytest.approx(2.0 / 3.0)
     assert metrics.rmse == pytest.approx(np.sqrt(5.0 / 3.0))
+    assert metrics.rmse_log > 0.0
     assert metrics.delta1 == pytest.approx(1.0 / 3.0)
+    assert metrics.delta2 == pytest.approx(1.0 / 3.0)
+    assert metrics.delta3 == pytest.approx(1.0 / 3.0)
     assert metrics.valid_pixels == 3
+    assert metrics.valid_fraction == pytest.approx(1.0)
+
+
+def test_align_depth_scale_shift_recovers_affine_target():
+    prediction = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    target = prediction * 2.0 + 1.5
+
+    aligned = align_depth_scale_shift(prediction, target)
+
+    assert np.allclose(aligned, target)
 
 
 def test_decode_tum_depth_png_converts_to_meters():

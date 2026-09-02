@@ -9,6 +9,7 @@ import numpy as np
 
 from src.depth.input_depth import InputDepthProcessor
 from src.depth.visualize import colorize_depth, normalize_depth_for_display
+from src.evaluation.pose_perturbation import PosePerturber
 from src.io.camera import create_frame_source
 from src.mapping.pointcloud import PointCloudBuilder
 from src.ros2.nodes import AtlasRosBridge
@@ -19,7 +20,7 @@ from src.utils.config import load_config
 from src.utils.demo_video import DemoVideoRecorder
 from src.utils.logger import get_logger
 from src.utils.perf import Timer
-from src.utils.run_metadata import build_run_manifest, write_json
+from src.utils.run_metadata import build_run_manifest, write_associations_csv, write_json
 
 LOGGER = get_logger(__name__)
 
@@ -43,11 +44,9 @@ def ensure_output_dir(path_str: str) -> Path:
 
 
 def _display_depth_map(depth_map: np.ndarray, config: dict) -> np.ndarray:
-    depth_config = config.get("depth", {})
-    source_mode = str(depth_config.get("source_mode", "estimate")).lower()
-    if source_mode == "input":
-        return normalize_depth_for_display(depth_map)
-    return np.asarray(depth_map, dtype=np.float32)
+    del config
+    # Both metric input depth and relative model output need display-only normalization.
+    return normalize_depth_for_display(depth_map)
 
 
 def save_demo_snapshots(output_dir: Path, rgb, depth_map, semantics, config: dict, saved: set[str]) -> None:
@@ -98,6 +97,7 @@ def run() -> None:
             depth_estimator = DepthEstimator(config["depth"])
         semantic_segmenter = SemanticSegmenter(config.get("semantics"))
         slam = SlamWrapper(config["slam"])
+        pose_perturber = PosePerturber(config.get("evaluation", {}).get("pose_perturbation"))
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
         ros_bridge = AtlasRosBridge(config["ros2"])
         demo_video = create_demo_video_recorder(config, output_dir)
@@ -113,6 +113,8 @@ def run() -> None:
     semantic_times_ms: list[float] = []
     mapping_times_ms: list[float] = []
     latest_point_count = 0
+    latest_mapping_diagnostics: dict[str, float | int] = {}
+    dropped_mapping_frames = 0
     try:
         for frame in source.frames():
             timestamp = frame.timestamp
@@ -135,7 +137,14 @@ def run() -> None:
                 semantic_prediction = semantic_segmenter.predict(rgb)
             pose = slam.update(rgb, depth_map, timestamp, pose_hint=frame.pose_matrix)
             with Timer() as mapping_timer:
-                point_cloud = mapper.integrate(depth_map, rgb, pose, semantics=semantic_prediction)
+                mapping_pose = pose_perturber.perturb(pose)
+                if mapping_pose is None:
+                    point_cloud = mapper.data()
+                    dropped_mapping_frames += 1
+                    latest_mapping_diagnostics = {"mapping_skipped_for_pose_dropout": 1}
+                else:
+                    point_cloud = mapper.integrate(depth_map, rgb, mapping_pose, semantics=semantic_prediction)
+                    latest_mapping_diagnostics = mapper.diagnostics()
 
             ros_bridge.publish_depth(depth_map, timestamp)
             ros_bridge.publish_pose(pose, timestamp)
@@ -238,6 +247,7 @@ def run() -> None:
     total_elapsed = max(perf_counter() - start_time, 1e-6)
     if processed:
         association = getattr(source, "depth_association", None)
+        write_associations_csv(Path(output_dir / "associations.csv"), getattr(source, "association_rows", []))
         write_json(Path(output_dir / "config.json"), config)
         write_json(Path(output_dir / "manifest.json"), build_run_manifest(config, Path.cwd(), association))
         write_json(
@@ -250,6 +260,8 @@ def run() -> None:
                 "avg_mapping_ms": sum(mapping_times_ms) / len(mapping_times_ms),
                 "avg_fps": processed / total_elapsed,
                 "point_count": latest_point_count,
+                "mapping_diagnostics": latest_mapping_diagnostics,
+                "dropped_mapping_frames": dropped_mapping_frames,
             },
         )
         LOGGER.info(

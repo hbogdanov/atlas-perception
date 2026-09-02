@@ -146,6 +146,16 @@ class TumRgbdFrameSource(FrameSource):
         self._depth_pairs, self.depth_association = associate_tum_entries(
             self._rgb_entries, self._depth_entries, self.tolerance
         )
+        self.association_rows = [
+            {
+                "rgb_timestamp": rgb_timestamp,
+                "rgb_path": rgb_path,
+                "depth_timestamp": depth_timestamp,
+                "depth_path": depth_path,
+                "timestamp_error": abs(depth_timestamp - rgb_timestamp),
+            }
+            for rgb_timestamp, rgb_path, depth_timestamp, depth_path in self._depth_pairs
+        ]
         self._pose_pairs = _associate_nearest(self._rgb_entries, self._pose_entries, self.tolerance)
 
     def frames(self) -> Generator[FramePacket, None, None]:

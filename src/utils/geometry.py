@@ -45,6 +45,31 @@ def depth_to_pointcloud(
     return points.reshape(-1, 3).astype(np.float32), colors.reshape(-1, 3).astype(np.float32)
 
 
+def depth_to_pointcloud_with_confidence(
+    depth_map: np.ndarray,
+    rgb_image: np.ndarray,
+    intrinsics: dict,
+    confidence_map: np.ndarray,
+    stride: int = 4,
+    min_confidence: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    depth = np.asarray(depth_map, dtype=np.float32)
+    confidence = np.asarray(confidence_map, dtype=np.float32)
+    if depth.shape != confidence.shape:
+        raise ValueError("Confidence map must have the same shape as the depth map.")
+    v_coords, u_coords = np.mgrid[0 : depth.shape[0] : stride, 0 : depth.shape[1] : stride]
+    sampled_depth = depth[::stride, ::stride]
+    sampled_confidence = confidence[::stride, ::stride]
+    sampled_rgb = rgb_image[::stride, ::stride].astype(np.float32) / 255.0
+    valid = (sampled_depth > 0.0) & np.isfinite(sampled_depth) & (sampled_confidence >= min_confidence)
+    points = pixel_to_camera_coords(u_coords[valid], v_coords[valid], sampled_depth[valid], intrinsics)
+    return (
+        points.reshape(-1, 3).astype(np.float32),
+        sampled_rgb[valid].reshape(-1, 3).astype(np.float32),
+        sampled_confidence[valid].reshape(-1).astype(np.float32),
+    )
+
+
 def transform_points(points: np.ndarray, transform: np.ndarray) -> np.ndarray:
     if points.size == 0:
         return points.astype(np.float32)

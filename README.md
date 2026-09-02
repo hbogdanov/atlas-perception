@@ -149,6 +149,7 @@ The configs are intentionally split by purpose:
 - [docs/architecture.md](docs/architecture.md)
 - [docs/ros_topics.md](docs/ros_topics.md)
 - [docs/sample_run.md](docs/sample_run.md)
+- [docs/experiments.md](docs/experiments.md)
 - [docs/isaac_sim_setup.md](docs/isaac_sim_setup.md)
 - [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md)
 - [data/README.md](data/README.md)

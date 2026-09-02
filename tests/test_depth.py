@@ -150,3 +150,10 @@ def test_normalize_depth_for_display_maps_metric_depth_to_unit_interval():
 def test_normalize_depth_for_display_can_fill_invalid_holes():
     normalized = normalize_depth_for_display(np.array([[1.0, 0.0, 1.2]], dtype=np.float32))
     assert normalized[0, 1] > 0.0
+
+
+def test_normalize_depth_for_display_limits_the_effect_of_far_outliers():
+    normalized = normalize_depth_for_display(np.array([[1.0, 1.1, 1.2, 100.0]], dtype=np.float32))
+
+    assert normalized[0, 0] > normalized[0, 2]
+    assert normalized[0, 2] > normalized[0, 3]
