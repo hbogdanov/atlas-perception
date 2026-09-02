@@ -33,7 +33,7 @@ class PoseGraph:
     loop_closures: list[LoopClosureConstraint] = field(default_factory=list)
     loop_closure_detector: LoopClosureDetector | None = None
 
-    def append(self, pose: PoseEstimate) -> None:
+    def append(self, pose: PoseEstimate, loop_constraint: LoopClosureConstraint | None = None) -> bool:
         node = PoseGraphNode(index=len(self.nodes), timestamp=float(pose.timestamp), pose_matrix=pose.matrix.copy())
         self.nodes.append(node)
         if len(self.nodes) > 1:
@@ -49,15 +49,20 @@ class PoseGraph:
                     error=error,
                 )
             )
-        if self.loop_closure_detector is None:
-            return
-        closure = self.loop_closure_detector.detect(
-            [PoseEstimate(T_world_camera=current.pose_matrix, timestamp=current.timestamp) for current in self.nodes]
-        )
+        closure = loop_constraint
+        if closure is None and self.loop_closure_detector is not None:
+            closure = self.loop_closure_detector.detect(
+                [
+                    PoseEstimate(T_world_camera=current.pose_matrix, timestamp=current.timestamp)
+                    for current in self.nodes
+                ]
+            )
         if closure is None:
-            return
+            return False
         target = self.nodes[closure.target_index]
-        relative = np.linalg.inv(target.pose_matrix) @ node.pose_matrix
+        relative = (
+            closure.transform if closure.transform is not None else np.linalg.inv(target.pose_matrix) @ node.pose_matrix
+        )
         self.loop_closures.append(closure)
         self.edges.append(
             PoseGraphEdge(
@@ -68,6 +73,29 @@ class PoseGraph:
                 error=closure.distance,
             )
         )
+        self.optimize_translations()
+        return True
+
+    def optimize_translations(self) -> None:
+        """Solve globally consistent node translations while preserving measured rotations."""
+        if len(self.nodes) < 2 or not self.edges:
+            return
+        rows, targets = [], []
+        for edge in self.edges:
+            row = np.zeros((len(self.nodes),), dtype=np.float64)
+            row[edge.source_index] = -1.0
+            row[edge.target_index] = 1.0
+            rows.append(row)
+            targets.append(self.nodes[edge.source_index].pose_matrix[:3, :3] @ edge.transform[:3, 3])
+        anchor = np.zeros((len(self.nodes),), dtype=np.float64)
+        anchor[0] = 1.0
+        rows.append(anchor)
+        targets.append(self.nodes[0].pose_matrix[:3, 3])
+        system = np.vstack(rows)
+        values = np.vstack(targets)
+        solved, _, _, _ = np.linalg.lstsq(system, values, rcond=None)
+        for node, translation in zip(self.nodes, solved, strict=True):
+            node.pose_matrix[:3, 3] = translation.astype(np.float32)
 
     def export_json(self, path: Path) -> None:
         payload = {

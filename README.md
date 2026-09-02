@@ -264,7 +264,7 @@ python -m src.main --config configs/default.yaml --override-config configs/bench
 python tools/evaluate_trajectory.py --estimated-json data/outputs/benchmarks/tum_rgbd_vo/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
 ```
 
-This is visual odometry, not a full visual-SLAM claim: Atlas still needs appearance-verified loop closure, pose-graph optimization, and relocalization to recover after tracking loss.
+For an RGB-D sequence with revisits, enable `slam.pose_graph.loop_closure.enabled`. Atlas ranks ORB appearance candidates, verifies them using target-frame metric depth plus PnP-RANSAC, and runs a global translation pose-graph correction. A valid configured landmark measurement also relocalizes a lost `rgbd_vo` track. Rotation-graph optimization, map reintegration after a correction, and uninstrumented relocalization remain future work, so this is not yet a full production-SLAM claim.
 
 Mapping representations are explicit:
 

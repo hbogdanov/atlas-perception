@@ -3,7 +3,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from src.slam.loop_closure import LoopClosureConstraint
 from src.slam.odometry import PoseEstimate
+from src.slam.pose_graph import PoseGraph
 from src.slam.trajectory import _select_projection_axes
 from src.slam.wrapper import RtabmapBackend, SlamWrapper
 from src.vision.landmark_pose import VisualPoseMeasurement
@@ -235,3 +237,50 @@ def test_pose_graph_adds_simple_loop_closure():
     slam.update(None, None, 3.0)
     assert len(slam.pose_graph.loop_closures) == 1
     assert slam.pose_graph.edges[-1].edge_type == "loop_closure"
+
+
+def test_pose_graph_loop_constraint_globally_corrects_translation_drift():
+    graph = PoseGraph()
+    poses = []
+    for index, x in enumerate((0.0, 1.0, 2.0)):
+        matrix = np.eye(4, dtype=np.float32)
+        matrix[0, 3] = x
+        poses.append(PoseEstimate(matrix, float(index)))
+        graph.append(poses[-1])
+    loop_transform = np.eye(4, dtype=np.float32)
+    graph.append(
+        PoseEstimate(np.array([[1, 0, 0, 3], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32), 3.0),
+        LoopClosureConstraint(source_index=3, target_index=0, distance=0.0, timestamp=3.0, transform=loop_transform),
+    )
+
+    assert graph.nodes[-1].pose_matrix[0, 3] < 3.0
+    assert graph.nodes[-1].pose_matrix[0, 3] > 0.0
+    assert graph.edges[-1].edge_type == "loop_closure"
+
+
+def test_landmark_measurement_relocalizes_lost_rgbd_tracker():
+    measurement_matrix = np.eye(4, dtype=np.float32)
+    measurement_matrix[0, 3] = 4.0
+    measurement = VisualPoseMeasurement(
+        timestamp=0.0,
+        T_world_camera=measurement_matrix,
+        covariance=np.eye(6, dtype=np.float32) * 0.01,
+        reprojection_rmse=0.5,
+        inlier_count=8,
+        landmark_ids=("aruco:7",),
+    )
+    slam = SlamWrapper(
+        {"mode": "rgbd_vo", "camera": {"fx": 250.0, "fy": 250.0, "cx": 160.0, "cy": 120.0}},
+        {"pose_correction": {"apply_to_mapping": True}},
+    )
+
+    pose = slam.update(
+        np.zeros((240, 320, 3), dtype=np.uint8),
+        np.ones((240, 320), dtype=np.float32),
+        0.0,
+        visual_measurement=measurement,
+    )
+
+    assert pose.tracking_ok is True
+    assert pose.matrix[0, 3] == pytest.approx(4.0)
+    assert slam.last_visual_correction.reason == "relocalized"

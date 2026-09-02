@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from src.ros2.transforms import quaternion_to_rotation_matrix
-from src.slam.loop_closure import LoopClosureDetector
+from src.slam.loop_closure import AppearanceLoopClosureDetector, LoopClosureDetector
 from src.slam.odometry import PoseEstimate, identity_pose
 from src.slam.pose_graph import PoseGraph
 from src.slam.trajectory import Trajectory
@@ -39,6 +39,9 @@ class SlamBackend(ABC):
 
     def get_trajectory(self) -> list[PoseEstimate]:
         return []
+
+    def set_pose(self, pose: PoseEstimate) -> None:
+        del pose
 
     def shutdown(self) -> None:
         return None
@@ -200,6 +203,10 @@ class RgbdVisualOdometryBackend(SlamBackend):
         self._previous_descriptors = None
         self._previous_depth = None
         self._latest = None
+        self._loop_detector = AppearanceLoopClosureDetector(
+            config.get("pose_graph", {}).get("loop_closure", {}), self._camera_matrix
+        )
+        self.last_loop_constraint = None
 
     def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
         timestamp = float(timestamp or 0.0)
@@ -207,6 +214,7 @@ class RgbdVisualOdometryBackend(SlamBackend):
             return self._lost_pose(timestamp)
         gray = self._cv2.cvtColor(np.asarray(rgb), self._cv2.COLOR_BGR2GRAY)
         keypoints, descriptors = self._orb.detectAndCompute(gray, None)
+        self.last_loop_constraint = self._loop_detector.detect(keypoints, descriptors, depth, timestamp)
         if self._latest is None:
             self._store_frame(keypoints, descriptors, depth)
             self._latest = identity_pose(timestamp)
@@ -241,6 +249,9 @@ class RgbdVisualOdometryBackend(SlamBackend):
 
     def get_pose(self) -> PoseEstimate | None:
         return self._latest
+
+    def set_pose(self, pose: PoseEstimate) -> None:
+        self._latest = pose
 
     def _matched_geometry(self, keypoints, descriptors) -> tuple[np.ndarray, np.ndarray]:
         matches = self._matcher.knnMatch(self._previous_descriptors, descriptors, k=2)
@@ -283,7 +294,13 @@ class SlamWrapper:
         pose_graph_config = config.get("pose_graph", {})
         loop_closure = LoopClosureDetector(pose_graph_config.get("loop_closure", {}))
         self.pose_graph = PoseGraph(
-            loop_closure_detector=loop_closure if bool(pose_graph_config.get("enabled", True)) else None
+            loop_closure_detector=(
+                loop_closure
+                if bool(pose_graph_config.get("enabled", True))
+                and self.mode != "rgbd_vo"
+                and bool(pose_graph_config.get("loop_closure", {}).get("proximity_enabled", True))
+                else None
+            )
         )
         self.backend = self._build_backend()
         correction_config = (visual_localization_config or {}).get("pose_correction", {})
@@ -305,7 +322,15 @@ class SlamWrapper:
         self.last_visual_correction = self.visual_pose_corrector.correct(pose, visual_measurement, timestamp)
         pose = self.last_visual_correction.pose
         self.trajectory.append(pose)
-        self.pose_graph.append(pose)
+        loop_constraint = getattr(self.backend, "last_loop_constraint", None)
+        loop_applied = self.pose_graph.append(pose, loop_constraint=loop_constraint)
+        if loop_applied:
+            self.trajectory.poses = [
+                PoseEstimate(node.pose_matrix.copy(), node.timestamp, self.trajectory.poses[index].tracking_ok)
+                for index, node in enumerate(self.pose_graph.nodes)
+            ]
+            pose = self.trajectory.poses[-1]
+            self.backend.set_pose(pose)
         return pose
 
     def export_trajectory(self, path: Path) -> None:

@@ -40,6 +40,9 @@ class VisualPoseCorrector:
             return _rejected(predicted_pose, "no_measurement")
         if abs(float(measurement.timestamp) - float(timestamp)) > self.max_timestamp_delta_sec:
             return _rejected(predicted_pose, "timestamp_mismatch")
+        if not predicted_pose.tracking_ok:
+            relocalized = PoseEstimate(measurement.T_world_camera.copy(), float(timestamp), tracking_ok=True)
+            return VisualPoseCorrection(relocalized, True, "relocalized", 0.0, 0.0)
         translation_delta, rotation_delta = _pose_innovation(predicted_pose.matrix, measurement.T_world_camera)
         if translation_delta > self.max_translation_innovation_m:
             return _rejected(predicted_pose, "translation_innovation", translation_delta, rotation_delta)

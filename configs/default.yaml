@@ -87,10 +87,15 @@ slam:
   pose_graph:
     enabled: true
     loop_closure:
-      # Atlas records proximity links only; this is not a visual loop-closure optimizer.
+      # rgbd_vo verifies appearance candidates with RGB-D PnP before graph correction.
       enabled: false
+      proximity_enabled: false
       min_node_gap: 15
       distance_threshold: 0.15
+      max_candidates: 3
+      min_matches: 30
+      min_inliers: 15
+      max_reprojection_error: 2.5
 
 mapping:
   enabled: true
