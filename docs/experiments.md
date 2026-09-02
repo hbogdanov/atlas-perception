@@ -28,6 +28,16 @@ python tools/compile_flagship_study.py
 The report labels supplied ground-truth and external poses explicitly. It is a study compiler, not a claim that every
 scenario uses autonomous visual SLAM.
 
+Run controlled calibration or timestamp-latency sweeps with injected errors:
+
+```bash
+python tools/run_sensitivity_study.py --kind calibration --max-frames 60
+python tools/run_sensitivity_study.py --kind latency --max-frames 60
+```
+
+These outputs quantify sensitivity to injected reconstruction intrinsics or delayed supplied poses. They are not a
+substitute for a hardware calibration study.
+
 For the final video, enable `output.save_demo_video: true`. Its camera tile labels depth confidence, landmark-PnP
 measurement quality, and visual-pose correction status alongside the depth and top-down map tiles.
 

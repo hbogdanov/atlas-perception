@@ -46,6 +46,8 @@ class AtlasRosBridge:
         self.enabled = bool(self.config.get("enabled", False))
         self._bridge = CvBridge() if CvBridge is not None else None
         self._node = None
+        self.map_frame_id = str(self.config.get("map_frame_id", self.config.get("frame_id", "map")))
+        self.camera_frame_id = str(self.config.get("camera_frame_id", "atlas_camera"))
         self.depth_publisher = TopicPublisher(self.config["depth_topic"])
         self.pose_publisher = TopicPublisher(self.config["pose_topic"])
         self.path_publisher = TopicPublisher(self.config["path_topic"])
@@ -62,7 +64,7 @@ class AtlasRosBridge:
             self.visual_pose_publisher.attach_ros(self._node, PoseWithCovarianceStamped)
 
     def publish_depth(self, depth_map: np.ndarray, timestamp: float) -> None:
-        header = self._header_from_timestamp(timestamp)
+        header = self._header_from_timestamp(timestamp, self.camera_frame_id)
         message = {"header": header, "depth": depth_map}
         if self._node is not None and self._bridge is not None:
             ros_image = self._bridge.cv2_to_imgmsg(depth_map.astype(np.float32), encoding="32FC1")
@@ -75,7 +77,7 @@ class AtlasRosBridge:
     def publish_pose(self, pose, timestamp: float) -> None:
         rotation = pose.matrix[:3, :3]
         quaternion = rotation_matrix_to_quaternion(rotation)
-        header = self._header_from_timestamp(timestamp)
+        header = self._header_from_timestamp(timestamp, self.map_frame_id)
         if self._node is not None and PoseStamped is not None:
             message = PoseStamped()
             message.header = header
@@ -99,13 +101,13 @@ class AtlasRosBridge:
         self.published["pose"] = {"header": header, "pose": pose.matrix, "quaternion_xyzw": quaternion}
 
     def publish_trajectory(self, trajectory, timestamp: float) -> None:
-        header = self._header_from_timestamp(timestamp)
+        header = self._header_from_timestamp(timestamp, self.map_frame_id)
         if self._node is not None and RosPath is not None and PoseStamped is not None:
             message = RosPath()
             message.header = header
             for pose in trajectory.poses:
                 pose_msg = PoseStamped()
-                pose_msg.header = self._header_from_timestamp(pose.timestamp)
+                pose_msg.header = self._header_from_timestamp(pose.timestamp, self.map_frame_id)
                 pose_msg.pose.position.x = float(pose.matrix[0, 3])
                 pose_msg.pose.position.y = float(pose.matrix[1, 3])
                 pose_msg.pose.position.z = float(pose.matrix[2, 3])
@@ -126,7 +128,7 @@ class AtlasRosBridge:
         self.published["path"] = {"header": header, "num_poses": len(trajectory.poses)}
 
     def publish_pointcloud(self, point_cloud, timestamp: float) -> None:
-        header = self._header_from_timestamp(timestamp)
+        header = self._header_from_timestamp(timestamp, self.map_frame_id)
         if self._node is not None and PointCloud2 is not None and point_cloud2 is not None and Header is not None:
             cloud_msg = point_cloud.to_ros_pointcloud2(header, point_cloud2, PointField)
             self.pointcloud_publisher.publish(cloud_msg)
@@ -150,7 +152,7 @@ class AtlasRosBridge:
     def publish_visual_pose(self, measurement) -> None:
         rotation = measurement.T_world_camera[:3, :3]
         quaternion = rotation_matrix_to_quaternion(rotation)
-        header = self._header_from_timestamp(measurement.timestamp)
+        header = self._header_from_timestamp(measurement.timestamp, self.map_frame_id)
         if self._node is not None and PoseWithCovarianceStamped is not None:
             message = PoseWithCovarianceStamped()
             message.header = header
@@ -191,11 +193,11 @@ class AtlasRosBridge:
         if rclpy is not None and rclpy.ok():
             rclpy.shutdown()
 
-    def _header_from_timestamp(self, timestamp: float):
+    def _header_from_timestamp(self, timestamp: float, frame_id: str):
         if Header is None:
-            return {"stamp": timestamp, "frame_id": self.config["frame_id"]}
+            return {"stamp": timestamp, "frame_id": frame_id}
         header = Header()
-        header.frame_id = self.config["frame_id"]
+        header.frame_id = frame_id
         if RosTime is not None:
             secs = int(timestamp)
             nanos = int((timestamp - secs) * 1_000_000_000)

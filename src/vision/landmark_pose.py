@@ -58,6 +58,18 @@ def solve_landmark_pose(
     if not success or inliers is None or len(inliers) < min_inliers:
         return None
     inlier_indices = inliers.reshape(-1)
+    refined, rotation_vector, translation_vector = cv2.solvePnP(
+        world_points[inlier_indices],
+        image_points[inlier_indices],
+        camera_matrix,
+        None,
+        rotation_vector,
+        translation_vector,
+        useExtrinsicGuess=True,
+        flags=cv2.SOLVEPNP_ITERATIVE,
+    )
+    if not refined:
+        return None
     projected, _ = cv2.projectPoints(
         world_points[inlier_indices], rotation_vector, translation_vector, camera_matrix, None
     )

@@ -43,6 +43,12 @@ semantics:
   iou: 0.7
 
 evaluation:
+  calibration_perturbation:
+    enabled: false
+    fx_scale: 1.0
+    fy_scale: 1.0
+    cx_offset_px: 0.0
+    cy_offset_px: 0.0
   pose_perturbation:
     enabled: false
     translation_std_m: 0.0
@@ -70,11 +76,13 @@ slam:
   mode: disabled
   frame_stride: 1
   pose_topic: /rtabmap/localization_pose
+  pose_message_type: pose_with_covariance
   timeout_sec: 0.05
   pose_graph:
     enabled: true
     loop_closure:
-      enabled: true
+      # Atlas records proximity links only; this is not a visual loop-closure optimizer.
+      enabled: false
       min_node_gap: 15
       distance_threshold: 0.15
 
@@ -82,6 +90,9 @@ mapping:
   enabled: true
   representation: pointcloud
   max_points: 150000
+  # Persistent global voxel count, retained across the full run (not a rolling frame buffer).
+  max_voxels: 150000
+  voxel_size: 0.03
   stride: 2
   confidence_fusion:
     enabled: false
@@ -105,7 +116,9 @@ ros2:
   path_topic: /atlas/path
   pointcloud_topic: /atlas/pointcloud
   visual_pose_topic: /atlas/visual_pose
-  frame_id: atlas_camera
+  # Depth is published in camera_frame_id. Pose, path, cloud, and visual pose use map_frame_id.
+  map_frame_id: map
+  camera_frame_id: atlas_camera
 
 output:
   save_rgb_snapshot: false

@@ -26,7 +26,8 @@ Use `python tools/run_isaac_demo.py` or `ros2 launch launch/isaac_atlas.launch.p
 Atlas uses consistent ROS headers across published messages:
 
 - `header.stamp`: frame timestamp propagated from the current source frame when available
-- `header.frame_id`: configured by `ros2.frame_id`
+- `ros2.camera_frame_id`: frame for depth images
+- `ros2.map_frame_id`: frame for world-aligned pose, path, point-cloud, and visual-pose outputs
 
 This applies to:
 
@@ -37,7 +38,7 @@ This applies to:
 
 ## Frames
 
-- `ros2.frame_id` sets the published frame name for outputs.
+- Atlas publishes depth in `camera_frame_id`; it publishes `T_world_camera` poses and world-aligned maps in `map_frame_id`.
 - Transforms and pose conversions are handled in `src/ros2/transforms.py`.
 
 ## Intrinsics
@@ -53,6 +54,6 @@ When `CameraInfo` is present, Atlas updates intrinsics before projecting depth i
 
 - `slam.mode: disabled` keeps `T_world_camera` at identity.
 - `slam.mode: dummy` produces synthetic forward motion for testing map accumulation.
-- `slam.mode: rtabmap` expects an external RTAB-Map ROS2 node publishing `slam.pose_topic` and Atlas consumes that pose for world-frame mapping.
+- `slam.mode: rtabmap` consumes `PoseWithCovarianceStamped` from `slam.pose_topic` by default. Set `slam.pose_message_type: pose_stamped` only for a custom source that publishes `PoseStamped`.
 - The Ubuntu TurtleBot3 Gazebo reference config is `configs/turtlebot3_gazebo_rtabmap.yaml`.
 - The Isaac Sim reference config is `configs/isaac_demo.yaml`.

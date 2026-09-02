@@ -9,6 +9,7 @@ import numpy as np
 
 from src.depth.input_depth import InputDepthProcessor
 from src.depth.visualize import colorize_depth, normalize_depth_for_display
+from src.evaluation.calibration_perturbation import CalibrationPerturber
 from src.evaluation.pose_perturbation import PosePerturber
 from src.io.camera import create_frame_source
 from src.mapping.confidence import compute_depth_confidence
@@ -102,6 +103,7 @@ def run() -> None:
         visual_config = config.get("visual_localization", {})
         slam = SlamWrapper(config["slam"], visual_config)
         pose_perturber = PosePerturber(config.get("evaluation", {}).get("pose_perturbation"))
+        calibration_perturber = CalibrationPerturber(config.get("evaluation", {}).get("calibration_perturbation"))
         landmark_detector = ArucoLandmarkDetector(visual_config) if visual_config.get("enabled", False) else None
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
         ros_bridge = AtlasRosBridge(config["ros2"])
@@ -125,7 +127,8 @@ def run() -> None:
         for frame in source.frames():
             timestamp = frame.timestamp
             rgb = frame.image
-            mapper.update_camera_intrinsics(getattr(source, "get_camera_intrinsics", lambda: None)())
+            source_intrinsics = getattr(source, "get_camera_intrinsics", lambda: None)()
+            mapper.update_camera_intrinsics(calibration_perturber.perturb(source_intrinsics or config["camera"]))
             with Timer() as depth_timer:
                 if depth_source_mode == "input":
                     if frame.depth_map is None:

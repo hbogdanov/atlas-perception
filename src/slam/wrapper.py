@@ -14,11 +14,12 @@ from src.vision.pose_correction import VisualPoseCorrector
 
 try:
     import rclpy
-    from geometry_msgs.msg import PoseStamped
+    from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
     from rclpy.node import Node
 except ImportError:  # pragma: no cover
     rclpy = None
     PoseStamped = None
+    PoseWithCovarianceStamped = None
     Node = None
 
 
@@ -97,19 +98,21 @@ class RtabmapBackend(SlamBackend):
     def __init__(self, config: dict) -> None:
         super().__init__(config)
         self.pose_topic = str(config.get("pose_topic", "/rtabmap/localization_pose"))
+        self.pose_message_type = str(config.get("pose_message_type", "pose_with_covariance")).lower()
         self.timeout_sec = float(config.get("timeout_sec", 0.0))
         self._latest: PoseEstimate | None = None
         self._owns_runtime = False
         self._node = None
 
     def initialize(self) -> None:
-        if rclpy is None or Node is None or PoseStamped is None:
+        if rclpy is None or Node is None or PoseStamped is None or PoseWithCovarianceStamped is None:
             raise RuntimeError("rtabmap mode requires ROS2 Python packages and geometry_msgs.")
         if not rclpy.ok():
             rclpy.init(args=None)
             self._owns_runtime = True
         self._node = Node("atlas_perception_slam")
-        self._node.create_subscription(PoseStamped, self.pose_topic, self._pose_callback, 10)
+        message_type = PoseWithCovarianceStamped if self.pose_message_type == "pose_with_covariance" else PoseStamped
+        self._node.create_subscription(message_type, self.pose_topic, self._pose_callback, 10)
 
     def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
         del rgb, depth
@@ -131,21 +134,22 @@ class RtabmapBackend(SlamBackend):
         if self._owns_runtime and rclpy is not None and rclpy.ok():
             rclpy.shutdown()
 
-    def _pose_callback(self, message: PoseStamped) -> None:
+    def _pose_callback(self, message) -> None:
+        pose_message = message.pose.pose if hasattr(message.pose, "pose") else message.pose
         transform = np.eye(4, dtype=np.float32)
         quaternion = np.array(
             [
-                float(message.pose.orientation.x),
-                float(message.pose.orientation.y),
-                float(message.pose.orientation.z),
-                float(message.pose.orientation.w),
+                float(pose_message.orientation.x),
+                float(pose_message.orientation.y),
+                float(pose_message.orientation.z),
+                float(pose_message.orientation.w),
             ],
             dtype=np.float32,
         )
         transform[:3, :3] = quaternion_to_rotation_matrix(quaternion)
-        transform[0, 3] = float(message.pose.position.x)
-        transform[1, 3] = float(message.pose.position.y)
-        transform[2, 3] = float(message.pose.position.z)
+        transform[0, 3] = float(pose_message.position.x)
+        transform[1, 3] = float(pose_message.position.y)
+        transform[2, 3] = float(pose_message.position.z)
         timestamp = float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
         self._latest = PoseEstimate(T_world_camera=transform, timestamp=timestamp, tracking_ok=True)
 

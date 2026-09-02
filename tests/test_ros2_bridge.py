@@ -22,7 +22,8 @@ def test_bridge_respects_disabled_flag_without_ros_runtime():
             "pose_topic": "/atlas/pose",
             "path_topic": "/atlas/path",
             "pointcloud_topic": "/atlas/pointcloud",
-            "frame_id": "atlas_camera",
+            "map_frame_id": "map",
+            "camera_frame_id": "atlas_camera",
         }
     )
 
@@ -38,6 +39,8 @@ def test_bridge_respects_disabled_flag_without_ros_runtime():
     assert bridge.path_publisher.last_message is not None
     assert bridge.pointcloud_publisher.last_message is not None
     assert bridge.depth_publisher.last_message["header"]["frame_id"] == "atlas_camera"
+    assert bridge.pose_publisher.last_message["header"]["frame_id"] == "map"
+    assert bridge.pointcloud_publisher.last_message["header"]["frame_id"] == "map"
 
 
 def test_bridge_publishes_visual_pose_with_covariance_without_ros_runtime():
@@ -48,7 +51,8 @@ def test_bridge_publishes_visual_pose_with_covariance_without_ros_runtime():
             "pose_topic": "/atlas/pose",
             "path_topic": "/atlas/path",
             "pointcloud_topic": "/atlas/pointcloud",
-            "frame_id": "atlas_camera",
+            "map_frame_id": "map",
+            "camera_frame_id": "atlas_camera",
         }
     )
     measurement = VisualPoseMeasurement(

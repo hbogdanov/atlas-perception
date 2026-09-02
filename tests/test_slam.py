@@ -138,6 +138,31 @@ def test_rtabmap_pose_callback_stores_full_rotation_and_translation():
     )
 
 
+def test_rtabmap_pose_callback_accepts_covariance_pose_message():
+    backend = RtabmapBackend({"mode": "rtabmap"})
+    pose = type(
+        "Pose",
+        (),
+        {
+            "position": type("Position", (), {"x": 1.0, "y": 2.0, "z": 3.0})(),
+            "orientation": type("Orientation", (), {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0})(),
+        },
+    )()
+    message = type(
+        "PoseWithCovarianceStamped",
+        (),
+        {
+            "header": type("Header", (), {"stamp": type("Stamp", (), {"sec": 4, "nanosec": 0})()})(),
+            "pose": type("PoseWithCovariance", (), {"pose": pose})(),
+        },
+    )()
+
+    backend._pose_callback(message)
+
+    assert backend.get_pose() is not None
+    assert backend.get_pose().matrix[2, 3] == pytest.approx(3.0)
+
+
 def test_trajectory_export_writes_plot(tmp_path: Path):
     slam = SlamWrapper({"mode": "dummy"})
     slam.update(None, None, 1.0)

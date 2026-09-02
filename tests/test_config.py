@@ -193,6 +193,22 @@ def test_validate_config_rejects_invalid_depth_postprocess_alpha():
         )
 
 
+def test_validate_config_rejects_invalid_calibration_scale():
+    with pytest.raises(ValueError):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "raw"},
+                "evaluation": {"calibration_perturbation": {"enabled": True, "fx_scale": 0.0}},
+                "slam": {"mode": "dummy"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
+
+
 def test_validate_config_rejects_invalid_semantic_settings():
     with pytest.raises(ValueError):
         validate_config(

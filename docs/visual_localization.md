@@ -48,3 +48,12 @@ marker through detection and PnP pose recovery. A real evaluation still needs
 a calibrated camera, surveyed marker map, and a recorded or live scene with
 visible markers. Report those results separately from Atlas's RGB-D mapping
 and externally posed RTAB-Map workflows.
+
+Run the included labeled synthetic check with:
+
+```bash
+python tools/run_synthetic_visual_localization.py
+```
+
+Its exact rendering poses make it useful for regression testing camera-frame conventions. It is not a substitute for a
+recorded, calibrated physical marker sequence.

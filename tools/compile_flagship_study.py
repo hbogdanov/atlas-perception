@@ -57,6 +57,9 @@ def compile_study(
 ) -> list[dict]:
     reference_path = run_root / reference_scenario / "frame_cloud.ply"
     reference_points = downsample(read_ascii_ply(reference_path), max_points)
+    manifests = {scenario: _read_json(run_root / scenario / "manifest.json") for scenario in scenarios}
+    runtimes = {scenario: _read_json(run_root / scenario / "runtime_metrics.json") for scenario in scenarios}
+    _validate_comparable_runs(manifests, runtimes, scenarios, reference_scenario)
     rows = []
     for scenario in scenarios:
         run_dir = run_root / scenario
@@ -64,12 +67,11 @@ def compile_study(
         metrics_path = run_dir / "runtime_metrics.json"
         if not cloud_path.exists() or not metrics_path.exists():
             raise FileNotFoundError(f"Missing complete artifacts for scenario '{scenario}' in {run_dir}.")
-        runtime = json.loads(metrics_path.read_text(encoding="utf-8"))
+        runtime = runtimes[scenario]
         map_metrics = compute_map_metrics(
             downsample(read_ascii_ply(cloud_path), max_points), reference_points
         ).to_dict()
-        manifest_path = run_dir / "manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        manifest = manifests[scenario]
         rows.append(
             {
                 "scenario": scenario,
@@ -82,6 +84,7 @@ def compile_study(
                 "point_count": runtime.get("point_count"),
                 "visual_pose_measurements": runtime.get("visual_pose_measurements", 0),
                 "provenance": _provenance_label(manifest),
+                "git_commit": manifest.get("git_commit", "unknown"),
             }
         )
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -99,6 +102,47 @@ def _provenance_label(manifest: dict) -> str:
     if pose_mode == "rtabmap":
         return "external RTAB-Map pose"
     return f"pose={pose_mode}; depth={depth_mode}"
+
+
+def _read_json(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing required run metadata: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _validate_comparable_runs(
+    manifests: dict[str, dict], runtimes: dict[str, dict], scenarios: list[str], reference_scenario: str
+) -> None:
+    if reference_scenario not in manifests:
+        raise ValueError(f"Reference scenario '{reference_scenario}' must be included in --scenarios.")
+    reference_manifest = manifests[reference_scenario]
+    reference_runtime = runtimes[reference_scenario]
+    invariant_paths = (
+        ("input", "mode"),
+        ("input", "source"),
+        ("camera",),
+        ("mapping", "representation"),
+        ("mapping", "stride"),
+        ("mapping", "voxel_size"),
+    )
+    for scenario in scenarios:
+        manifest = manifests[scenario]
+        if manifest.get("git_commit") != reference_manifest.get("git_commit"):
+            raise ValueError("Flagship study requires every run to use the same recorded git commit.")
+        if runtimes[scenario].get("frames_processed") != reference_runtime.get("frames_processed"):
+            raise ValueError("Flagship study requires the same processed frame count for every scenario.")
+        for path in invariant_paths:
+            if _nested_value(manifest, path) != _nested_value(reference_manifest, path):
+                raise ValueError(f"Flagship study requires matching {'.'.join(path)} across all scenarios.")
+
+
+def _nested_value(payload: dict, path: tuple[str, ...]):
+    value = payload
+    for key in path:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+    return value
 
 
 def _write_tables(rows: list[dict], output_dir: Path) -> None:

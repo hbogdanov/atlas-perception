@@ -66,11 +66,15 @@ def validate_config(config: dict) -> dict:
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))
     _validate_semantics(config.get("semantics", {}))
     _validate_pose_perturbation(config.get("evaluation", {}).get("pose_perturbation", {}))
+    _validate_calibration_perturbation(config.get("evaluation", {}).get("calibration_perturbation", {}))
     _validate_visual_localization(config.get("visual_localization", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
         raise ValueError(f"slam.mode must be one of {sorted(VALID_SLAM_MODES)}, got {slam_mode!r}.")
+    pose_message_type = str(config["slam"].get("pose_message_type", "pose_with_covariance")).lower()
+    if pose_message_type not in {"pose_stamped", "pose_with_covariance"}:
+        raise ValueError("slam.pose_message_type must be pose_stamped or pose_with_covariance.")
 
     representation = str(config["mapping"].get("representation", "pointcloud")).lower()
     if representation not in VALID_MAPPING_REPRESENTATIONS:
@@ -84,6 +88,10 @@ def validate_config(config: dict) -> dict:
         raise ValueError("mapping.stride must be greater than 0.")
     if max_points <= 0:
         raise ValueError("mapping.max_points must be greater than 0.")
+    if float(config["mapping"].get("voxel_size", 0.03)) <= 0.0:
+        raise ValueError("mapping.voxel_size must be greater than 0.")
+    if int(config["mapping"].get("max_voxels", max_points)) <= 0:
+        raise ValueError("mapping.max_voxels must be greater than 0.")
     if representation == "tsdf":
         voxel_length = float(config["mapping"].get("tsdf_voxel_length", 0.0))
         sdf_trunc = float(config["mapping"].get("tsdf_sdf_trunc", 0.0))
@@ -165,6 +173,16 @@ def _validate_pose_perturbation(settings: dict) -> None:
         raise ValueError("evaluation.pose_perturbation.dropout_probability must be between 0 and 1.")
     if int(settings.get("latency_frames", 0)) < 0:
         raise ValueError("evaluation.pose_perturbation.latency_frames must be non-negative.")
+
+
+def _validate_calibration_perturbation(settings: dict) -> None:
+    if not settings:
+        return
+    if not isinstance(settings, dict):
+        raise ValueError("evaluation.calibration_perturbation must be a dictionary when provided.")
+    for key in ("fx_scale", "fy_scale"):
+        if float(settings.get(key, 1.0)) <= 0.0:
+            raise ValueError(f"evaluation.calibration_perturbation.{key} must be greater than 0.")
 
 
 def _validate_visual_localization(settings: dict) -> None:

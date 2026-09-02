@@ -11,7 +11,7 @@ Atlas Perception is a modular robotics perception stack that converts monocular 
 - Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
 - Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
 - Explicit SLAM modes for `disabled`, `dummy`, and `rtabmap`
-- Pose-graph bookkeeping with simple loop-closure constraints for trajectory structure
+- Pose-graph bookkeeping with optional proximity links for trajectory inspection
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo

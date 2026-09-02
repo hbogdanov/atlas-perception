@@ -43,6 +43,26 @@ def test_pointcloud_builder_integrates_without_open3d():
     assert builder.points.shape == (4, 3)
 
 
+def test_pointcloud_builder_keeps_global_voxels_instead_of_truncating_recent_frames():
+    builder = PointCloudBuilder(
+        {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+        {"stride": 1, "max_points": 4, "max_voxels": 4, "voxel_size": 0.25},
+    )
+    depth = np.ones((1, 1), dtype=np.float32)
+    rgb = np.zeros((1, 1, 3), dtype=np.uint8)
+    first_pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+    second_matrix = np.eye(4, dtype=np.float32)
+    second_matrix[0, 3] = 1.0
+    second_pose = type("Pose", (), {"matrix": second_matrix})()
+
+    builder.integrate(depth, rgb, first_pose)
+    cloud = builder.integrate(depth, rgb, second_pose)
+
+    assert cloud.points.shape[0] == 2
+    assert cloud.observation_counts is not None
+    assert cloud.observation_counts.tolist() == [1, 1]
+
+
 def test_pointcloud_builder_rejects_unknown_representation():
     with pytest.raises(ValueError):
         PointCloudBuilder(
