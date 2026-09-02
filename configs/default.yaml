@@ -91,8 +91,10 @@ mapping:
   representation: pointcloud
   max_points: 150000
   # Persistent global voxel count, retained across the full run (not a rolling frame buffer).
-  max_voxels: 150000
+  max_voxels: 60000
   voxel_size: 0.03
+  # Deterministic CPU bound that preserves frame coverage without per-pixel map growth.
+  max_samples_per_frame: 6000
   stride: 2
   confidence_fusion:
     enabled: false

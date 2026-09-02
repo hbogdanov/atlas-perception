@@ -92,6 +92,8 @@ def validate_config(config: dict) -> dict:
         raise ValueError("mapping.voxel_size must be greater than 0.")
     if int(config["mapping"].get("max_voxels", max_points)) <= 0:
         raise ValueError("mapping.max_voxels must be greater than 0.")
+    if int(config["mapping"].get("max_samples_per_frame", 12000)) <= 0:
+        raise ValueError("mapping.max_samples_per_frame must be greater than 0.")
     if representation == "tsdf":
         voxel_length = float(config["mapping"].get("tsdf_voxel_length", 0.0))
         sdf_trunc = float(config["mapping"].get("tsdf_sdf_trunc", 0.0))

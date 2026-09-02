@@ -63,6 +63,21 @@ def test_pointcloud_builder_keeps_global_voxels_instead_of_truncating_recent_fra
     assert cloud.observation_counts.tolist() == [1, 1]
 
 
+def test_pointcloud_builder_bounds_voxel_input_samples_per_frame():
+    builder = PointCloudBuilder(
+        {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+        {"stride": 1, "max_points": 100, "max_samples_per_frame": 3, "voxel_size": 0.01},
+    )
+    depth = np.ones((2, 2), dtype=np.float32)
+    rgb = np.zeros((2, 2, 3), dtype=np.uint8)
+    pose = type("Pose", (), {"matrix": np.eye(4, dtype=np.float32)})()
+
+    builder.integrate(depth, rgb, pose)
+
+    assert builder.diagnostics()["voxel_input_points"] == 4
+    assert builder.points.shape[0] == 3
+
+
 def test_pointcloud_builder_rejects_unknown_representation():
     with pytest.raises(ValueError):
         PointCloudBuilder(

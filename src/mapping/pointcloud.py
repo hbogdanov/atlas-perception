@@ -124,6 +124,7 @@ class PointCloudFusionBackend(MappingBackend):
         super().__init__(camera_config, mapping_config)
         self.voxel_size = float(mapping_config.get("voxel_size", 0.03))
         self.max_voxels = int(mapping_config.get("max_voxels", mapping_config.get("max_points", 100000)))
+        self.max_samples_per_frame = int(mapping_config.get("max_samples_per_frame", 12000))
         self._voxels: dict[tuple[int, int, int], _VoxelState] = {}
         self._class_names: dict[int, str] = {}
         self._last_diagnostics: dict[str, float | int] = {}
@@ -195,6 +196,7 @@ class PointCloudFusionBackend(MappingBackend):
             "mean_confidence": float(np.mean(sample_confidence)) if sample_confidence.size else 0.0,
             "active_voxels": len(self._voxels),
             "capacity_rejected_voxels": capacity_rejections,
+            "voxel_input_points": self._last_voxel_input_points,
         }
         self._previous_depth = np.asarray(depth_map, dtype=np.float32).copy()
         self._previous_pose = pose.matrix.copy()
@@ -246,11 +248,20 @@ class PointCloudFusionBackend(MappingBackend):
     def _integrate_voxels(
         self, points: np.ndarray, colors: np.ndarray, confidence: np.ndarray, semantics, stride: int
     ) -> int:
+        self._last_voxel_input_points = int(points.shape[0])
         if points.size == 0:
             return 0
+        labels, semantic_colors = self._sample_semantics(semantics, stride, points.shape[0])
+        if points.shape[0] > self.max_samples_per_frame:
+            indices = np.linspace(0, points.shape[0] - 1, self.max_samples_per_frame, dtype=np.int64)
+            points = points[indices]
+            colors = colors[indices]
+            confidence = confidence[indices]
+            if labels is not None:
+                labels = labels[indices]
+                semantic_colors = semantic_colors[indices]
         keys = np.floor(points / self.voxel_size).astype(np.int64)
         unique_keys, first_indices, inverse = np.unique(keys, axis=0, return_index=True, return_inverse=True)
-        labels, semantic_colors = self._sample_semantics(semantics, stride, inverse.shape[0])
         capacity_rejections = 0
         for group_index in np.argsort(first_indices):
             key_array = unique_keys[group_index]
