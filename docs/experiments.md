@@ -38,6 +38,27 @@ python tools/run_sensitivity_study.py --kind latency --max-frames 60
 These outputs quantify sensitivity to injected reconstruction intrinsics or delayed supplied poses. They are not a
 substitute for a hardware calibration study.
 
+## RGB-D Odometry Validation
+
+Two independent TUM RGB-D `xyz` sequences are configured for owned metric RGB-D visual odometry. They consume
+dataset depth, not supplied trajectory poses. The checked runs below used 120 frames, a four-pixel mapping stride,
+and bounded 20,000-voxel fusion; the accuracy metrics evaluate only the estimated trajectory against each sequence's
+ground truth.
+
+| Sequence | ATE RMSE (m) | RPE translation RMSE (m) | RPE rotation RMSE (deg) | Matched poses |
+| --- | ---: | ---: | ---: | ---: |
+| TUM `fr1_xyz` | 0.0235 | 0.0055 | 0.3653 | 119 |
+| TUM `fr2_xyz` | 0.0115 | 0.0027 | 0.2235 | 119 |
+
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_fr1_xyz_rgbd_vo.yaml --max-frames 120
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_fr2_xyz_rgbd_vo.yaml --max-frames 120
+```
+
+These are visual-odometry validation runs, not loop-closure validation: neither first-120-frame segment contains a
+controlled revisit. Enable appearance-verified loop closure only on a sequence selected for a true revisit, and report
+the number of accepted closures plus pre/post-correction ATE and RPE.
+
 For the final video, enable `output.save_demo_video: true`. Its camera tile labels depth confidence, landmark-PnP
 measurement quality, and visual-pose correction status alongside the depth and top-down map tiles.
 

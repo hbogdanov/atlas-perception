@@ -254,6 +254,21 @@ def test_validate_config_rejects_invalid_depth_source_mode():
                 "output": {},
             }
         )
+
+
+def test_validate_config_requires_metric_depth_for_rgbd_vo():
+    with pytest.raises(ValueError, match="requires depth.source_mode 'input'"):
+        validate_config(
+            {
+                "input": {"mode": "webcam"},
+                "camera": {"fx": 1.0, "fy": 1.0, "cx": 0.0, "cy": 0.0},
+                "depth": {"output_mode": "relative_normalized", "source_mode": "estimate"},
+                "slam": {"mode": "rgbd_vo"},
+                "mapping": {"stride": 1, "max_points": 10},
+                "ros2": {},
+                "output": {},
+            }
+        )
     with pytest.raises(ValueError):
         validate_config(
             {

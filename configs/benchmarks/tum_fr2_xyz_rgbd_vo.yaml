@@ -1,0 +1,32 @@
+input:
+  mode: rgbd_dataset
+  source: rgbd_dataset_freiburg2_xyz
+
+depth:
+  source_mode: input
+  output_mode: raw
+  postprocess:
+    enabled: false
+
+slam:
+  mode: rgbd_vo
+  pose_graph:
+    enabled: true
+    loop_closure:
+      enabled: false
+
+mapping:
+  stride: 4
+  max_voxels: 20000
+  max_samples_per_frame: 2000
+
+semantics:
+  enabled: false
+
+ros2:
+  enabled: false
+
+output:
+  output_dir: data/outputs/benchmarks/tum_fr2_xyz_rgbd_vo
+  save_pointcloud: true
+  save_trajectory: true

@@ -72,6 +72,8 @@ def validate_config(config: dict) -> dict:
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
         raise ValueError(f"slam.mode must be one of {sorted(VALID_SLAM_MODES)}, got {slam_mode!r}.")
+    if slam_mode == "rgbd_vo" and source_mode != "input":
+        raise ValueError("slam.mode 'rgbd_vo' requires depth.source_mode 'input' with metric RGB-D depth.")
     pose_message_type = str(config["slam"].get("pose_message_type", "pose_with_covariance")).lower()
     if pose_message_type not in {"pose_stamped", "pose_with_covariance"}:
         raise ValueError("slam.pose_message_type must be pose_stamped or pose_with_covariance.")
