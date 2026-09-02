@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.mapping.confidence import compute_depth_confidence
+from src.mapping.confidence import compute_depth_confidence, compute_multiview_confidence
 from src.slam.odometry import PoseEstimate
 from src.utils.geometry import depth_to_pointcloud, depth_to_pointcloud_with_confidence, transform_points
 
@@ -118,6 +118,8 @@ class PointCloudFusionBackend(MappingBackend):
         self._class_names: dict[int, str] = {}
         self._confidence = np.empty((0,), dtype=np.float32)
         self._last_diagnostics: dict[str, float | int] = {}
+        self._previous_depth: np.ndarray | None = None
+        self._previous_pose: np.ndarray | None = None
 
     @property
     def points(self) -> np.ndarray:
@@ -132,9 +134,27 @@ class PointCloudFusionBackend(MappingBackend):
         semantic_fusion = bool(self.mapping_config.get("semantic_color_fusion", True))
         color_image = semantics.colorize() if semantics is not None and semantic_fusion else rgb
         confidence_config = self.mapping_config.get("confidence_fusion", {})
-        confidence_enabled = bool(confidence_config.get("enabled", False))
+        multi_view_config = self.mapping_config.get("multi_view_consistency", {})
+        confidence_enabled = bool(confidence_config.get("enabled", False) or multi_view_config.get("enabled", False))
+        multi_view_enabled = bool(multi_view_config.get("enabled", False))
+        multiview_overlap = 0
+        multiview_confidence = None
         if confidence_enabled:
-            confidence_map = compute_depth_confidence(depth_map, float(confidence_config.get("edge_scale", 0.15)))
+            confidence_map = (
+                compute_depth_confidence(depth_map, float(confidence_config.get("edge_scale", 0.15)))
+                if confidence_config.get("enabled", False)
+                else np.where(np.asarray(depth_map) > 0.0, 1.0, 0.0).astype(np.float32)
+            )
+            if multi_view_enabled and self._previous_depth is not None and self._previous_pose is not None:
+                multiview_confidence, multiview_overlap = compute_multiview_confidence(
+                    depth_map,
+                    pose.matrix,
+                    self._previous_depth,
+                    self._previous_pose,
+                    self.camera_config,
+                    float(multi_view_config.get("relative_error_scale", 0.1)),
+                )
+                confidence_map *= multiview_confidence
             sample_points, sample_colors, sample_confidence = depth_to_pointcloud_with_confidence(
                 depth_map,
                 color_image,
@@ -156,6 +176,13 @@ class PointCloudFusionBackend(MappingBackend):
         total_samples = int(depth_map[::stride, ::stride].size)
         self._last_diagnostics = {
             "confidence_enabled": int(confidence_enabled),
+            "multi_view_enabled": int(multi_view_enabled),
+            "multi_view_overlap_pixels": multiview_overlap,
+            "multi_view_mean_confidence": (
+                float(np.mean(multiview_confidence[multiview_confidence > 0.0]))
+                if multiview_confidence is not None and np.any(multiview_confidence > 0.0)
+                else 1.0
+            ),
             "sampled_pixels": total_samples,
             "accepted_points": int(sample_points.shape[0]),
             "rejected_points": total_samples - int(sample_points.shape[0]),
@@ -166,6 +193,8 @@ class PointCloudFusionBackend(MappingBackend):
             self._semantic_labels = np.hstack([self._semantic_labels, semantic_labels])[-max_points:]
             self._semantic_colors = np.vstack([self._semantic_colors, semantic_colors])[-max_points:]
             self._class_names.update(semantics.class_names)
+        self._previous_depth = np.asarray(depth_map, dtype=np.float32).copy()
+        self._previous_pose = pose.matrix.copy()
         return self.data()
 
     def data(self) -> PointCloudData:

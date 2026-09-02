@@ -1,0 +1,34 @@
+input:
+  mode: rgbd_dataset
+  source: data/samples/tum_freiburg1_xyz
+
+depth:
+  source_mode: input
+  output_mode: raw
+  postprocess:
+    enabled: false
+
+slam:
+  mode: groundtruth
+
+mapping:
+  confidence_fusion:
+    enabled: true
+    edge_scale: 0.15
+    min_confidence: 0.2
+  multi_view_consistency:
+    enabled: true
+    relative_error_scale: 0.1
+
+semantics:
+  enabled: false
+
+ros2:
+  enabled: false
+
+output:
+  output_dir: data/outputs/benchmarks/tum_gt_depth_gt_pose_multiview
+  save_rgb_snapshot: true
+  save_depth_snapshot: true
+  save_pointcloud: true
+  save_trajectory: true

@@ -19,6 +19,18 @@ The `gt_depth_gt_pose` scenario is the mapping ceiling. The estimated-depth and 
 one input category at a time; the final scenario compounds both sources of error. Do not compare runs with different
 frame counts, intrinsics, map settings, or depth-alignment methods.
 
+Compile completed benchmark artifacts into a portfolio-ready technical report and runtime/map-quality figure:
+
+```bash
+python tools/compile_flagship_study.py
+```
+
+The report labels supplied ground-truth and external poses explicitly. It is a study compiler, not a claim that every
+scenario uses autonomous visual SLAM.
+
+For the final video, enable `output.save_demo_video: true`. Its camera tile labels depth confidence, landmark-PnP
+measurement quality, and visual-pose correction status alongside the depth and top-down map tiles.
+
 ## Depth Robustness
 
 The robustness runner evaluates a clean baseline and deterministic brightness, noise, blur, resolution, and occlusion

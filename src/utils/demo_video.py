@@ -113,6 +113,36 @@ class DemoVideoRecorder:
         return tile
 
     @staticmethod
+    def overlay_perception_diagnostics(
+        rgb: np.ndarray,
+        confidence_map: np.ndarray | None,
+        visual_measurement=None,
+        visual_correction=None,
+    ) -> np.ndarray:
+        """Overlay bounded confidence and pose-localization telemetry on the camera frame."""
+        overlay = np.asarray(rgb, dtype=np.uint8).copy()
+        if confidence_map is not None:
+            confidence = np.clip(np.asarray(confidence_map, dtype=np.float32), 0.0, 1.0)
+            heatmap = cv2.applyColorMap((confidence * 255.0).astype(np.uint8), cv2.COLORMAP_TURBO)
+            overlay = cv2.addWeighted(overlay, 0.68, heatmap, 0.32, 0.0)
+        lines = ["depth confidence" if confidence_map is not None else "depth confidence: disabled"]
+        if visual_measurement is not None:
+            lines.append(
+                f"visual PnP: {visual_measurement.inlier_count} inliers, {visual_measurement.reprojection_rmse:.2f}px"
+            )
+        else:
+            lines.append("visual PnP: no landmark measurement")
+        if visual_correction is not None:
+            state = "accepted" if visual_correction.applied else f"rejected ({visual_correction.reason})"
+            lines.append(f"pose correction: {state}")
+        y = 28
+        for line in lines:
+            cv2.putText(overlay, line, (14, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (15, 15, 15), 3)
+            cv2.putText(overlay, line, (14, y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (245, 245, 245), 1)
+            y += 25
+        return overlay
+
+    @staticmethod
     def _build_status_panel(
         width: int,
         height: int,
@@ -162,6 +192,8 @@ class DemoVideoRecorder:
             f"fused points: {int(metrics['points'])}",
             f"fps: {metrics['fps']:.2f}",
             f"mapping_ms: {metrics['mapping_ms']:.2f}",
+            f"confidence: {runtime.get('confidence_mean', 1.0):.2f}",
+            f"visual pose: {runtime.get('visual_pose_status', 'disabled')}",
         ]
         y = 42
         for line in lines:

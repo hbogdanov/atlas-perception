@@ -6,6 +6,7 @@ import pytest
 from src.slam.odometry import PoseEstimate
 from src.slam.trajectory import _select_projection_axes
 from src.slam.wrapper import RtabmapBackend, SlamWrapper
+from src.vision.landmark_pose import VisualPoseMeasurement
 
 
 def test_disabled_mode_returns_identity_pose():
@@ -61,6 +62,25 @@ def test_groundtruth_mode_uses_pose_hint():
     pose = slam.update(None, None, 1.0, pose_hint=pose_matrix)
     assert pose.matrix[0, 3] == pytest.approx(1.25)
     assert pose.tracking_ok is True
+
+
+def test_slam_wrapper_uses_accepted_visual_pose_for_trajectory_and_mapping_pose():
+    measurement_transform = np.eye(4, dtype=np.float32)
+    measurement_transform[0, 3] = 0.25
+    measurement = VisualPoseMeasurement(
+        timestamp=1.0,
+        T_world_camera=measurement_transform,
+        covariance=np.eye(6, dtype=np.float32) * 0.01,
+        reprojection_rmse=0.5,
+        inlier_count=8,
+        landmark_ids=("aruco:7",),
+    )
+    slam = SlamWrapper({"mode": "disabled"}, {"pose_correction": {"apply_to_mapping": True}})
+
+    pose = slam.update(None, None, 1.0, visual_measurement=measurement)
+
+    assert pose.matrix[0, 3] == pytest.approx(0.25)
+    assert slam.trajectory.poses[-1].matrix[0, 3] == pytest.approx(0.25)
 
 
 def test_rtabmap_mode_without_ros_runtime_fails_cleanly():

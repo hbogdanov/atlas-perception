@@ -6,6 +6,7 @@ Use these docs in this order:
 - `docs/pipeline.md`: recruiter-friendly walkthrough of depth inference, projection, fusion, mapping, and trajectory
 - `docs/architecture.md`: pipeline stages, world-frame mapping flow, and simulator reference path
 - `docs/ros_topics.md`: ROS2 subscriptions, publications, frame semantics, and SLAM topic contract
+- `docs/visual_localization.md`: calibrated ArUco landmark localization setup and evaluation boundary
 - `docs/sample_run.md`: reproducible artifact generation commands and expected outputs
 - `docs/isaac_sim_setup.md`: Isaac Sim ROS2 topic contract and Atlas launch commands
 - `docs/ubuntu_gazebo_setup.md`: Ubuntu 22.04 + ROS2 Humble + TurtleBot3 Gazebo setup for a real simulator-backed run
@@ -64,6 +65,7 @@ Atlas currently documents and supports:
 - selectable point-cloud or TSDF volumetric mapping
 - ROS2 publishing for depth, pose, path, and point cloud outputs
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`
+- calibrated ArUco landmark observations with RANSAC PnP visual-pose measurements
 - dataset-provided pose consumption through `slam.mode: groundtruth`
 - pose-graph export with simple loop-closure constraints
 - composite demo video generation from the main pipeline

@@ -10,6 +10,7 @@ from src.slam.loop_closure import LoopClosureDetector
 from src.slam.odometry import PoseEstimate, identity_pose
 from src.slam.pose_graph import PoseGraph
 from src.slam.trajectory import Trajectory
+from src.vision.pose_correction import VisualPoseCorrector
 
 try:
     import rclpy
@@ -22,7 +23,7 @@ except ImportError:  # pragma: no cover
 
 
 class SlamBackend(ABC):
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, visual_localization_config: dict | None = None) -> None:
         self.config = config
 
     def initialize(self) -> None:
@@ -165,7 +166,7 @@ class GroundTruthBackend(SlamBackend):
 class SlamWrapper:
     """Integration boundary for visual odometry or external SLAM systems."""
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, visual_localization_config: dict | None = None) -> None:
         self.config = config
         self.mode = str(config.get("mode", "disabled")).lower()
         self.trajectory = Trajectory()
@@ -175,6 +176,9 @@ class SlamWrapper:
             loop_closure_detector=loop_closure if bool(pose_graph_config.get("enabled", True)) else None
         )
         self.backend = self._build_backend()
+        correction_config = (visual_localization_config or {}).get("pose_correction", {})
+        self.visual_pose_corrector = VisualPoseCorrector(correction_config)
+        self.last_visual_correction = None
 
     def update(
         self,
@@ -182,11 +186,14 @@ class SlamWrapper:
         depth_map: np.ndarray,
         timestamp: float,
         pose_hint: np.ndarray | None = None,
+        visual_measurement=None,
     ) -> PoseEstimate:
         try:
             pose = self.backend.update(image, depth_map, timestamp, pose_hint=pose_hint)
         except TypeError:
             pose = self.backend.update(image, depth_map, timestamp)
+        self.last_visual_correction = self.visual_pose_corrector.correct(pose, visual_measurement, timestamp)
+        pose = self.last_visual_correction.pose
         self.trajectory.append(pose)
         self.pose_graph.append(pose)
         return pose

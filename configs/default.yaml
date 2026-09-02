@@ -51,6 +51,21 @@ evaluation:
     latency_frames: 0
     seed: 0
 
+visual_localization:
+  enabled: false
+  dictionary: DICT_4X4_50
+  marker_length_m: 0.16
+  max_reprojection_error: 3.0
+  landmarks: []
+  pose_correction:
+    apply_to_mapping: false
+    blend_weight: 1.0
+    max_timestamp_delta_sec: 0.05
+    max_translation_innovation_m: 2.0
+    max_rotation_innovation_deg: 45.0
+    max_translation_std_m: 0.5
+    max_rotation_std_deg: 20.0
+
 slam:
   mode: disabled
   frame_stride: 1
@@ -72,6 +87,9 @@ mapping:
     enabled: false
     edge_scale: 0.15
     min_confidence: 0.2
+  multi_view_consistency:
+    enabled: false
+    relative_error_scale: 0.1
   semantic_color_fusion: true
   tsdf_voxel_length: 0.04
   tsdf_sdf_trunc: 0.08

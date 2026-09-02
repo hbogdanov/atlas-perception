@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 SCENARIOS = {
     "gt_depth_gt_pose": "configs/benchmarks/tum_gt_depth_gt_pose.yaml",
+    "gt_depth_gt_pose_multiview": "configs/benchmarks/tum_gt_depth_gt_pose_multiview.yaml",
     "estimated_depth_gt_pose": "configs/benchmarks/tum_estimated_depth_gt_pose.yaml",
     "gt_depth_perturbed_pose": "configs/benchmarks/tum_gt_depth_perturbed_pose.yaml",
     "estimated_depth_perturbed_pose": "configs/benchmarks/tum_estimated_depth_perturbed_pose.yaml",

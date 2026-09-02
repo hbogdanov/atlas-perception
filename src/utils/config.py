@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 REQUIRED_SECTIONS = ("input", "camera", "depth", "slam", "mapping", "ros2", "output")
@@ -65,6 +66,7 @@ def validate_config(config: dict) -> dict:
     _validate_depth_postprocess(config["depth"].get("postprocess", {}))
     _validate_semantics(config.get("semantics", {}))
     _validate_pose_perturbation(config.get("evaluation", {}).get("pose_perturbation", {}))
+    _validate_visual_localization(config.get("visual_localization", {}))
 
     slam_mode = str(config["slam"].get("mode", "")).lower()
     if slam_mode not in VALID_SLAM_MODES:
@@ -101,6 +103,11 @@ def validate_config(config: dict) -> dict:
             raise ValueError("mapping.confidence_fusion.min_confidence must be between 0 and 1.")
         if float(confidence_fusion.get("edge_scale", 0.15)) <= 0.0:
             raise ValueError("mapping.confidence_fusion.edge_scale must be greater than 0.")
+    multi_view = config["mapping"].get("multi_view_consistency", {})
+    if multi_view and not isinstance(multi_view, dict):
+        raise ValueError("mapping.multi_view_consistency must be a dictionary when provided.")
+    if multi_view and float(multi_view.get("relative_error_scale", 0.1)) <= 0.0:
+        raise ValueError("mapping.multi_view_consistency.relative_error_scale must be greater than 0.")
 
     return config
 
@@ -158,6 +165,36 @@ def _validate_pose_perturbation(settings: dict) -> None:
         raise ValueError("evaluation.pose_perturbation.dropout_probability must be between 0 and 1.")
     if int(settings.get("latency_frames", 0)) < 0:
         raise ValueError("evaluation.pose_perturbation.latency_frames must be non-negative.")
+
+
+def _validate_visual_localization(settings: dict) -> None:
+    if not settings:
+        return
+    if not isinstance(settings, dict):
+        raise ValueError("visual_localization must be a dictionary when provided.")
+    if float(settings.get("marker_length_m", 0.16)) <= 0.0:
+        raise ValueError("visual_localization.marker_length_m must be greater than 0.")
+    if float(settings.get("max_reprojection_error", 3.0)) <= 0.0:
+        raise ValueError("visual_localization.max_reprojection_error must be greater than 0.")
+    for landmark in settings.get("landmarks", []):
+        if "id" not in landmark or "T_world_marker" not in landmark:
+            raise ValueError("Each visual_localization landmark requires id and T_world_marker.")
+        if np.asarray(landmark["T_world_marker"]).shape != (4, 4):
+            raise ValueError("visual_localization landmark T_world_marker must have shape (4, 4).")
+    correction = settings.get("pose_correction", {})
+    if correction and not isinstance(correction, dict):
+        raise ValueError("visual_localization.pose_correction must be a dictionary when provided.")
+    if correction and not 0.0 <= float(correction.get("blend_weight", 1.0)) <= 1.0:
+        raise ValueError("visual_localization.pose_correction.blend_weight must be between 0 and 1.")
+    for key in (
+        "max_timestamp_delta_sec",
+        "max_translation_innovation_m",
+        "max_rotation_innovation_deg",
+        "max_translation_std_m",
+        "max_rotation_std_deg",
+    ):
+        if correction and float(correction.get(key, 1.0)) <= 0.0:
+            raise ValueError(f"visual_localization.pose_correction.{key} must be greater than 0.")
 
 
 def load_config(path: str | Path, override_path: str | Path | None = None) -> dict:

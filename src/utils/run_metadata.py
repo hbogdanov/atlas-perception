@@ -48,6 +48,7 @@ def build_run_manifest(config: dict, repo_root: Path, association: Any = None) -
         "slam": dict(config.get("slam", {})),
         "mapping": dict(config.get("mapping", {})),
         "camera": dict(config.get("camera", {})),
+        "visual_localization": dict(config.get("visual_localization", {})),
         "environment": {
             "python": sys.version.split()[0],
             "platform": platform.platform(),

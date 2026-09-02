@@ -35,6 +35,16 @@ def test_compose_frame_returns_expected_shape():
     assert frame.shape == (720, 1280, 3)
 
 
+def test_diagnostic_overlay_renders_confidence_and_pose_status():
+    rgb = np.full((80, 120, 3), 120, dtype=np.uint8)
+    confidence = np.linspace(0.0, 1.0, 80 * 120, dtype=np.float32).reshape(80, 120)
+
+    overlay = DemoVideoRecorder.overlay_perception_diagnostics(rgb, confidence)
+
+    assert overlay.shape == rgb.shape
+    assert not np.array_equal(overlay, rgb)
+
+
 def test_render_topdown_map_draws_fused_points():
     pose = PoseEstimate(T_world_camera=np.eye(4, dtype=np.float32), timestamp=1.0, tracking_ok=True)
     cloud = PointCloudData(

@@ -238,6 +238,16 @@ SLAM modes are explicit:
 - `slam.mode: rtabmap` consumes external RTAB-Map pose output from ROS2 and uses it for world-frame cloud alignment
 - `slam.mode: groundtruth` consumes pose matrices supplied by the active dataset source
 
+For a reproducible reconstruction study after benchmark runs, use:
+
+```bash
+python tools/compile_flagship_study.py
+```
+
+It writes a technical report, machine-readable results table, and a map-quality/runtime figure under
+`data/outputs/flagship_study`. The report keeps dataset ground truth, external poses, and estimated visual poses
+explicitly separated.
+
 Pose-graph support is also config-driven:
 
 - `slam.pose_graph.enabled: true` records pose nodes and odometry edges during runtime

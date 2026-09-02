@@ -11,6 +11,7 @@ from src.depth.input_depth import InputDepthProcessor
 from src.depth.visualize import colorize_depth, normalize_depth_for_display
 from src.evaluation.pose_perturbation import PosePerturber
 from src.io.camera import create_frame_source
+from src.mapping.confidence import compute_depth_confidence
 from src.mapping.pointcloud import PointCloudBuilder
 from src.ros2.nodes import AtlasRosBridge
 from src.semantics.segmenter import SemanticSegmenter
@@ -21,6 +22,8 @@ from src.utils.demo_video import DemoVideoRecorder
 from src.utils.logger import get_logger
 from src.utils.perf import Timer
 from src.utils.run_metadata import build_run_manifest, write_associations_csv, write_json
+from src.vision.aruco_landmarks import ArucoLandmarkDetector
+from src.vision.landmark_pose import solve_landmark_pose
 
 LOGGER = get_logger(__name__)
 
@@ -96,8 +99,10 @@ def run() -> None:
 
             depth_estimator = DepthEstimator(config["depth"])
         semantic_segmenter = SemanticSegmenter(config.get("semantics"))
-        slam = SlamWrapper(config["slam"])
+        visual_config = config.get("visual_localization", {})
+        slam = SlamWrapper(config["slam"], visual_config)
         pose_perturber = PosePerturber(config.get("evaluation", {}).get("pose_perturbation"))
+        landmark_detector = ArucoLandmarkDetector(visual_config) if visual_config.get("enabled", False) else None
         mapper = PointCloudBuilder(config["camera"], config["mapping"])
         ros_bridge = AtlasRosBridge(config["ros2"])
         demo_video = create_demo_video_recorder(config, output_dir)
@@ -115,6 +120,7 @@ def run() -> None:
     latest_point_count = 0
     latest_mapping_diagnostics: dict[str, float | int] = {}
     dropped_mapping_frames = 0
+    visual_pose_measurements = 0
     try:
         for frame in source.frames():
             timestamp = frame.timestamp
@@ -135,7 +141,24 @@ def run() -> None:
                     depth_map = depth_estimator.predict(rgb)
             with Timer() as semantic_timer:
                 semantic_prediction = semantic_segmenter.predict(rgb)
-            pose = slam.update(rgb, depth_map, timestamp, pose_hint=frame.pose_matrix)
+            visual_measurement = None
+            if landmark_detector is not None:
+                visual_measurement = solve_landmark_pose(
+                    landmark_detector.detect(rgb),
+                    config["camera"],
+                    timestamp,
+                    max_reprojection_error=float(visual_config.get("max_reprojection_error", 3.0)),
+                )
+            pose = slam.update(
+                rgb,
+                depth_map,
+                timestamp,
+                pose_hint=frame.pose_matrix,
+                visual_measurement=visual_measurement,
+            )
+            if visual_measurement is not None:
+                ros_bridge.publish_visual_pose(visual_measurement)
+                visual_pose_measurements += 1
             with Timer() as mapping_timer:
                 mapping_pose = pose_perturber.perturb(pose)
                 if mapping_pose is None:
@@ -154,6 +177,8 @@ def run() -> None:
             save_demo_snapshots(output_dir, rgb, depth_map, semantic_prediction, config, saved_snapshots)
             if demo_video is not None:
                 display_depth = _display_depth_map(depth_map, config)
+                confidence_enabled = bool(config["mapping"].get("confidence_fusion", {}).get("enabled", False))
+                confidence_map = compute_depth_confidence(depth_map) if confidence_enabled else None
                 semantic_mode = "disabled"
                 semantic_image = None
                 semantic_summary = "disabled"
@@ -171,7 +196,12 @@ def run() -> None:
                     "frames": processed + 1,
                 }
                 demo_video.write(
-                    rgb=rgb,
+                    rgb=DemoVideoRecorder.overlay_perception_diagnostics(
+                        rgb,
+                        confidence_map,
+                        visual_measurement,
+                        slam.last_visual_correction,
+                    ),
                     depth_map=display_depth,
                     trajectory=slam.trajectory,
                     pose=pose,
@@ -188,6 +218,8 @@ def run() -> None:
                         "map_title": "Fused Point Cloud Map",
                         "semantic_mode": semantic_mode,
                         "semantic_summary": semantic_summary,
+                        "confidence_mean": float(latest_mapping_diagnostics.get("mean_confidence", 1.0)),
+                        "visual_pose_status": ("measurement" if visual_measurement is not None else "no measurement"),
                         "map_projection": str(config["output"].get("demo_map_projection", "auto")),
                         "map_bounds": config["output"].get("demo_map_bounds"),
                     },
@@ -262,6 +294,17 @@ def run() -> None:
                 "point_count": latest_point_count,
                 "mapping_diagnostics": latest_mapping_diagnostics,
                 "dropped_mapping_frames": dropped_mapping_frames,
+                "visual_pose_measurements": visual_pose_measurements,
+                "visual_pose_correction": (
+                    None
+                    if slam.last_visual_correction is None
+                    else {
+                        "applied": slam.last_visual_correction.applied,
+                        "reason": slam.last_visual_correction.reason,
+                        "translation_innovation_m": slam.last_visual_correction.translation_innovation_m,
+                        "rotation_innovation_deg": slam.last_visual_correction.rotation_innovation_deg,
+                    }
+                ),
             },
         )
         LOGGER.info(
