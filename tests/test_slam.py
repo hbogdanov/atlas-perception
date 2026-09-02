@@ -55,6 +55,31 @@ def test_unknown_backend_mode_fails_explicitly():
         SlamWrapper({"mode": "visual_odometry"})
 
 
+def test_rgbd_vo_tracks_a_textured_translation_with_metric_depth():
+    import cv2
+
+    rng = np.random.default_rng(7)
+    image = np.zeros((240, 320, 3), dtype=np.uint8)
+    for x, y in rng.integers((20, 20), (300, 220), size=(180, 2)):
+        cv2.circle(image, (int(x), int(y)), 2, (255, 255, 255), -1)
+    shifted = cv2.warpAffine(image, np.float32([[1, 0, -8], [0, 1, 0]]), (320, 240))
+    slam = SlamWrapper(
+        {
+            "mode": "rgbd_vo",
+            "camera": {"fx": 250.0, "fy": 250.0, "cx": 160.0, "cy": 120.0},
+            "min_correspondences": 12,
+            "min_inliers": 8,
+        }
+    )
+
+    first = slam.update(image, np.full((240, 320), 2.0, dtype=np.float32), 0.0)
+    second = slam.update(shifted, np.full((240, 320), 2.0, dtype=np.float32), 1.0)
+
+    assert first.tracking_ok is False
+    assert second.tracking_ok is True
+    assert abs(second.matrix[0, 3]) > 0.02
+
+
 def test_groundtruth_mode_uses_pose_hint():
     slam = SlamWrapper({"mode": "groundtruth"})
     pose_matrix = np.eye(4, dtype=np.float32)

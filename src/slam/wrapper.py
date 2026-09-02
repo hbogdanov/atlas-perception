@@ -167,6 +167,112 @@ class GroundTruthBackend(SlamBackend):
         )
 
 
+class RgbdVisualOdometryBackend(SlamBackend):
+    """Sparse calibrated RGB-D odometry using feature tracks and PnP-RANSAC.
+
+    This intentionally consumes metric depth only. Relative monocular depth is
+    not a valid source of metric camera motion for this backend.
+    """
+
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        import cv2
+
+        camera = config.get("camera", {})
+        self._camera_matrix = np.array(
+            [
+                [camera.get("fx", 0.0), 0.0, camera.get("cx", 0.0)],
+                [0.0, camera.get("fy", 0.0), camera.get("cy", 0.0)],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float32,
+        )
+        if self._camera_matrix[0, 0] <= 0.0 or self._camera_matrix[1, 1] <= 0.0:
+            raise ValueError("rgbd_vo mode requires positive camera intrinsics.")
+        self._cv2 = cv2
+        self._orb = cv2.ORB_create(nfeatures=int(config.get("max_features", 1200)))
+        self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+        self._ratio_test = float(config.get("match_ratio", 0.75))
+        self._min_correspondences = int(config.get("min_correspondences", 20))
+        self._min_inliers = int(config.get("min_inliers", 12))
+        self._max_depth_m = float(config.get("max_depth_m", 8.0))
+        self._previous_keypoints = None
+        self._previous_descriptors = None
+        self._previous_depth = None
+        self._latest = None
+
+    def update(self, rgb, depth=None, timestamp=None) -> PoseEstimate:
+        timestamp = float(timestamp or 0.0)
+        if rgb is None or depth is None:
+            return self._lost_pose(timestamp)
+        gray = self._cv2.cvtColor(np.asarray(rgb), self._cv2.COLOR_BGR2GRAY)
+        keypoints, descriptors = self._orb.detectAndCompute(gray, None)
+        if self._latest is None:
+            self._store_frame(keypoints, descriptors, depth)
+            self._latest = identity_pose(timestamp)
+            self._latest.tracking_ok = False
+            return self._latest
+        if descriptors is None or self._previous_descriptors is None:
+            self._store_frame(keypoints, descriptors, depth)
+            return self._lost_pose(timestamp)
+        object_points, image_points = self._matched_geometry(keypoints, descriptors)
+        self._store_frame(keypoints, descriptors, depth)
+        if len(object_points) < self._min_correspondences:
+            return self._lost_pose(timestamp)
+        success, rvec, translation, inliers = self._cv2.solvePnPRansac(
+            object_points,
+            image_points,
+            self._camera_matrix,
+            None,
+            iterationsCount=100,
+            reprojectionError=2.0,
+            confidence=0.999,
+            flags=self._cv2.SOLVEPNP_EPNP,
+        )
+        if not success or inliers is None or len(inliers) < self._min_inliers:
+            return self._lost_pose(timestamp)
+        rotation, _ = self._cv2.Rodrigues(rvec)
+        T_current_previous = np.eye(4, dtype=np.float32)
+        T_current_previous[:3, :3] = rotation.astype(np.float32)
+        T_current_previous[:3, 3] = translation.reshape(3).astype(np.float32)
+        world_current = self._latest.matrix @ np.linalg.inv(T_current_previous)
+        self._latest = PoseEstimate(world_current.astype(np.float32), timestamp, tracking_ok=True)
+        return self._latest
+
+    def get_pose(self) -> PoseEstimate | None:
+        return self._latest
+
+    def _matched_geometry(self, keypoints, descriptors) -> tuple[np.ndarray, np.ndarray]:
+        matches = self._matcher.knnMatch(self._previous_descriptors, descriptors, k=2)
+        object_points, image_points = [], []
+        for pair in matches:
+            if len(pair) != 2 or pair[0].distance >= self._ratio_test * pair[1].distance:
+                continue
+            previous = self._previous_keypoints[pair[0].queryIdx].pt
+            current = keypoints[pair[0].trainIdx].pt
+            u, v = int(round(previous[0])), int(round(previous[1]))
+            if not (0 <= v < self._previous_depth.shape[0] and 0 <= u < self._previous_depth.shape[1]):
+                continue
+            z = float(self._previous_depth[v, u])
+            if not np.isfinite(z) or z <= 0.0 or z > self._max_depth_m:
+                continue
+            x = (previous[0] - self._camera_matrix[0, 2]) * z / self._camera_matrix[0, 0]
+            y = (previous[1] - self._camera_matrix[1, 2]) * z / self._camera_matrix[1, 1]
+            object_points.append((x, y, z))
+            image_points.append(current)
+        return np.asarray(object_points, dtype=np.float32), np.asarray(image_points, dtype=np.float32)
+
+    def _store_frame(self, keypoints, descriptors, depth) -> None:
+        self._previous_keypoints = keypoints
+        self._previous_descriptors = descriptors
+        self._previous_depth = np.asarray(depth, dtype=np.float32).copy()
+
+    def _lost_pose(self, timestamp: float) -> PoseEstimate:
+        if self._latest is None:
+            self._latest = identity_pose(timestamp)
+        return PoseEstimate(self._latest.matrix.copy(), timestamp, tracking_ok=False)
+
+
 class SlamWrapper:
     """Integration boundary for visual odometry or external SLAM systems."""
 
@@ -222,4 +328,6 @@ class SlamWrapper:
             return RtabmapBackend(self.config)
         if self.mode == "groundtruth":
             return GroundTruthBackend(self.config)
+        if self.mode == "rgbd_vo":
+            return RgbdVisualOdometryBackend(self.config)
         raise ValueError(f"Unsupported SLAM mode: {self.mode}")

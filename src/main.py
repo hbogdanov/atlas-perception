@@ -101,7 +101,8 @@ def run() -> None:
             depth_estimator = DepthEstimator(config["depth"])
         semantic_segmenter = SemanticSegmenter(config.get("semantics"))
         visual_config = config.get("visual_localization", {})
-        slam = SlamWrapper(config["slam"], visual_config)
+        slam_config = {**config["slam"], "camera": config["camera"]}
+        slam = SlamWrapper(slam_config, visual_config)
         pose_perturber = PosePerturber(config.get("evaluation", {}).get("pose_perturbation"))
         calibration_perturber = CalibrationPerturber(config.get("evaluation", {}).get("calibration_perturbation"))
         landmark_detector = ArucoLandmarkDetector(visual_config) if visual_config.get("enabled", False) else None

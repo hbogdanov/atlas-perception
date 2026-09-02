@@ -55,5 +55,7 @@ When `CameraInfo` is present, Atlas updates intrinsics before projecting depth i
 - `slam.mode: disabled` keeps `T_world_camera` at identity.
 - `slam.mode: dummy` produces synthetic forward motion for testing map accumulation.
 - `slam.mode: rtabmap` consumes `PoseWithCovarianceStamped` from `slam.pose_topic` by default. Set `slam.pose_message_type: pose_stamped` only for a custom source that publishes `PoseStamped`.
+- `slam.mode: rgbd_vo` runs an in-process metric RGB-D visual-odometry frontend. It is appropriate only when the incoming depth is metric and calibrated; it publishes Atlas poses using the same map-frame convention.
+- `rgbd_vo` does not yet perform loop closure, global pose optimization, or relocalization. Use RTAB-Map as the external full-SLAM source for ROS2 workflows requiring those capabilities.
 - The Ubuntu TurtleBot3 Gazebo reference config is `configs/turtlebot3_gazebo_rtabmap.yaml`.
 - The Isaac Sim reference config is `configs/isaac_demo.yaml`.

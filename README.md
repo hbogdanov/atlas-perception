@@ -10,8 +10,8 @@ Atlas Perception is a modular robotics perception stack that converts monocular 
 - Real monocular depth backends for MiDaS or Depth Anything
 - Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
 - Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
-- Explicit SLAM modes for `disabled`, `dummy`, and `rtabmap`
-- Pose-graph bookkeeping with optional proximity links for trajectory inspection
+- Explicit pose modes, including owned metric `rgbd_vo` visual odometry
+- Pose-graph bookkeeping for trajectory inspection; no built-in loop optimizer is claimed
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
@@ -126,6 +126,7 @@ Best broad mapping showcase.
 | `dummy` | webcam / video / sim | synthetic path | demo mapping and visualization-only accumulation |
 | `rtabmap` | ROS2 / sim | external SLAM pose | world-aligned mapping and trajectory |
 | `groundtruth` | RGB-D dataset | dataset ground truth | metric mapping and trajectory export |
+| `rgbd_vo` | metric RGB-D | owned ORB + depth + PnP-RANSAC odometry | estimated metric trajectory and global map |
 
 ## Configs
 
@@ -237,6 +238,7 @@ SLAM modes are explicit:
 - `slam.mode: dummy` generates a synthetic visualization path for pipeline testing and demo accumulation
 - `slam.mode: rtabmap` consumes external RTAB-Map pose output from ROS2 and uses it for world-frame cloud alignment
 - `slam.mode: groundtruth` consumes pose matrices supplied by the active dataset source
+- `slam.mode: rgbd_vo` estimates metric frame-to-frame motion from ORB tracks, previous-frame metric depth, and PnP-RANSAC; it does not accept relative monocular depth as metric geometry
 
 For a reproducible reconstruction study after benchmark runs, use:
 
@@ -251,9 +253,18 @@ explicitly separated.
 Pose-graph support is also config-driven:
 
 - `slam.pose_graph.enabled: true` records pose nodes and odometry edges during runtime
-- `slam.pose_graph.loop_closure.enabled: true` adds simple proximity-based loop-closure edges
+- `slam.pose_graph.loop_closure.enabled: true` records proximity candidates for inspection only; it does not verify visual appearance or optimize poses
 - `slam.pose_graph.loop_closure.min_node_gap` prevents trivial adjacent-frame closures
 - `slam.pose_graph.loop_closure.distance_threshold` controls revisit sensitivity
+
+Reproduce the owned RGB-D odometry baseline and compare it with TUM ground truth:
+
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_rgbd_vo.yaml --max-frames 60
+python tools/evaluate_trajectory.py --estimated-json data/outputs/benchmarks/tum_rgbd_vo/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
+```
+
+This is visual odometry, not a full visual-SLAM claim: Atlas still needs appearance-verified loop closure, pose-graph optimization, and relocalization to recover after tracking loss.
 
 Mapping representations are explicit:
 

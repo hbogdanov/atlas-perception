@@ -78,6 +78,12 @@ slam:
   pose_topic: /rtabmap/localization_pose
   pose_message_type: pose_with_covariance
   timeout_sec: 0.05
+  # rgbd_vo is sparse metric visual odometry, not compatible with relative monocular depth.
+  max_features: 1200
+  match_ratio: 0.75
+  min_correspondences: 20
+  min_inliers: 12
+  max_depth_m: 8.0
   pose_graph:
     enabled: true
     loop_closure:

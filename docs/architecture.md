@@ -29,7 +29,7 @@ ROS2 Topic Publishing
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
 2. `src/depth` loads a pretrained depth backend, converts RGB frames into dense depth estimates, and can run post-inference refinement.
 3. `src/semantics` optionally runs semantic segmentation and produces class masks or overlays for semantic-geometric fusion.
-4. `src/slam` consumes observations and emits `T_world_camera` from `disabled`, `dummy`, or `rtabmap` backends, while pose-graph bookkeeping records odometry and loop-closure edges.
+4. `src/slam` consumes observations and emits `T_world_camera` from disabled, synthetic, external, dataset, or metric RGB-D visual-odometry backends. The owned `rgbd_vo` backend tracks ORB features, back-projects previous metric depth, and estimates relative motion with PnP-RANSAC. Pose-graph bookkeeping records edges but does not yet optimize a loop-closed trajectory.
 5. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
 6. `src/mapping` transforms those points into the world frame and either fuses successive clouds directly or integrates them into an Open3D TSDF volume.
 7. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
@@ -56,7 +56,7 @@ The cleanest real simulator path is:
 - `src/depth/models.py`: depth backend registry plus built-in MiDaS and Depth Anything plugins
 - `src/semantics/segmenter.py`: semantic segmentation entrypoint with optional YOLOv8 backend selection
 - `src/semantics/models.py`: semantic backend registry, prediction container, and overlay/color utilities
-- `src/slam/wrapper.py`: backend contract plus `disabled`, `dummy`, and `rtabmap` trajectory integrations
+- `src/slam/wrapper.py`: backend contract plus disabled, synthetic, external, dataset, and `rgbd_vo` integrations
 - `src/slam/pose_graph.py`: pose-graph node and edge bookkeeping plus export helpers
 - `src/slam/loop_closure.py`: simple proximity-based loop-closure detection
 - `src/mapping/pointcloud.py`: camera-frame back-projection, point-cloud fusion, TSDF integration, and export adapters

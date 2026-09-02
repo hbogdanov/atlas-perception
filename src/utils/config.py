@@ -10,7 +10,7 @@ REQUIRED_SECTIONS = ("input", "camera", "depth", "slam", "mapping", "ros2", "out
 VALID_INPUT_MODES = {"webcam", "video", "ros2", "rgbd_dataset"}
 VALID_DEPTH_OUTPUT_MODES = {"relative_normalized", "raw"}
 VALID_DEPTH_SOURCE_MODES = {"estimate", "input"}
-VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap", "groundtruth"}
+VALID_SLAM_MODES = {"disabled", "dummy", "rtabmap", "groundtruth", "rgbd_vo"}
 VALID_MAPPING_REPRESENTATIONS = {"pointcloud", "tsdf"}
 VALID_SEMANTIC_BACKENDS = {"disabled", "yolov8_seg"}
 
