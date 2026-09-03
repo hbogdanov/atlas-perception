@@ -34,7 +34,9 @@ reprojection-error-derived covariance.
 ## Pose Corrections
 
 Set `visual_localization.pose_correction.apply_to_mapping: true` to use an
-accepted visual pose as an opt-in mapping and trajectory correction. Atlas
+accepted visual pose as an opt-in mapping and trajectory correction. For
+`rgbd_vo`, an accepted correction is also written back into the odometry state,
+so landmark relocalization persists into the next tracked frame. Atlas
 rejects a correction when its timestamp, translation or rotation innovation,
 or covariance exceeds the configured bounds. `blend_weight: 1.0` replaces the
 incoming pose; lower values apply a bounded SE(3) blend. This is appropriate

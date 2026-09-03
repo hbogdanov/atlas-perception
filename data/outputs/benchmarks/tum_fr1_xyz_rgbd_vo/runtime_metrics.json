@@ -1,0 +1,30 @@
+{
+  "avg_depth_ms": 2.4540758361884705,
+  "avg_fps": 2.28709532971478,
+  "avg_mapping_ms": 264.2129708333717,
+  "avg_semantic_ms": 0.00530250205580766,
+  "dropped_mapping_frames": 0,
+  "frames_processed": 120,
+  "mapping_diagnostics": {
+    "accepted_points": 14279,
+    "active_voxels": 16795,
+    "capacity_rejected_voxels": 0,
+    "confidence_enabled": 0,
+    "mean_confidence": 1.0,
+    "multi_view_enabled": 0,
+    "multi_view_mean_confidence": 1.0,
+    "multi_view_overlap_pixels": 0,
+    "rejected_points": 4921,
+    "sampled_pixels": 19200,
+    "voxel_input_points": 14279
+  },
+  "point_count": 16795,
+  "total_elapsed_seconds": 52.468298299994785,
+  "visual_pose_correction": {
+    "applied": false,
+    "reason": "disabled",
+    "rotation_innovation_deg": 0.0,
+    "translation_innovation_m": 0.0
+  },
+  "visual_pose_measurements": 0
+}

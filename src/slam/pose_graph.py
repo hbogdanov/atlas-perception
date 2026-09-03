@@ -119,6 +119,9 @@ class PoseGraph:
                     "target_index": closure.target_index,
                     "distance": closure.distance,
                     "timestamp": closure.timestamp,
+                    "transform": None if closure.transform is None else closure.transform.tolist(),
+                    "inlier_count": closure.inlier_count,
+                    "reprojection_rmse": closure.reprojection_rmse,
                 }
                 for closure in self.loop_closures
             ],

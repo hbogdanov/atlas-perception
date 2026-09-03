@@ -29,7 +29,7 @@ ROS2 Topic Publishing
 1. `src/io` ingests frames from webcam, video, simulator, or ROS2 sources.
 2. `src/depth` loads a pretrained depth backend, converts RGB frames into dense depth estimates, and can run post-inference refinement.
 3. `src/semantics` optionally runs semantic segmentation and produces class masks or overlays for semantic-geometric fusion.
-4. `src/slam` consumes observations and emits `T_world_camera` from disabled, synthetic, external, dataset, or metric RGB-D visual-odometry backends. The owned `rgbd_vo` backend tracks ORB features, back-projects previous metric depth, and estimates relative motion with PnP-RANSAC. Pose-graph bookkeeping records edges but does not yet optimize a loop-closed trajectory.
+4. `src/slam` consumes observations and emits `T_world_camera` from disabled, synthetic, external, dataset, or metric RGB-D visual-odometry backends. The owned `rgbd_vo` backend tracks ORB features, back-projects previous metric depth, and estimates relative motion with PnP-RANSAC. It can retrieve appearance candidates, verify them with target-depth PnP-RANSAC, and apply a global translation-only pose-graph correction. Rotation optimization and map reintegration remain incomplete.
 5. `src/mapping` back-projects depth into camera-frame point clouds using camera intrinsics.
 6. `src/mapping` transforms those points into the world frame and either fuses successive clouds directly or integrates them into an Open3D TSDF volume.
 7. `src/ros2` publishes depth, pose, path, and point cloud outputs to the rest of the robot stack.
@@ -58,7 +58,7 @@ The cleanest real simulator path is:
 - `src/semantics/models.py`: semantic backend registry, prediction container, and overlay/color utilities
 - `src/slam/wrapper.py`: backend contract plus disabled, synthetic, external, dataset, and `rgbd_vo` integrations
 - `src/slam/pose_graph.py`: pose-graph node and edge bookkeeping plus export helpers
-- `src/slam/loop_closure.py`: simple proximity-based loop-closure detection
+- `src/slam/loop_closure.py`: optional legacy proximity links plus RGB-D appearance retrieval and geometric loop verification
 - `src/mapping/pointcloud.py`: camera-frame back-projection, point-cloud fusion, TSDF integration, and export adapters
 - `src/ros2/nodes.py`: ROS2 bridge used to publish depth, pose, path, and colored point clouds
 - `src/sim/common.py`: simulator bridge contract for runtime topic adaptation and launch arguments

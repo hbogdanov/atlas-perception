@@ -66,6 +66,16 @@ class AppearanceLoopClosureDetector:
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
         self._keyframes: list[tuple[list, np.ndarray | None, np.ndarray]] = []
 
+    def update_camera_intrinsics(self, intrinsics: dict) -> None:
+        self._camera_matrix = np.array(
+            [
+                [intrinsics["fx"], 0.0, intrinsics["cx"]],
+                [0.0, intrinsics["fy"], intrinsics["cy"]],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float32,
+        )
+
     def detect(self, keypoints, descriptors, depth: np.ndarray, timestamp: float) -> LoopClosureConstraint | None:
         current_index = len(self._keyframes)
         result = None

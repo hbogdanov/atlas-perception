@@ -43,6 +43,9 @@ class SlamBackend(ABC):
     def set_pose(self, pose: PoseEstimate) -> None:
         del pose
 
+    def update_camera_intrinsics(self, intrinsics: dict) -> None:
+        del intrinsics
+
     def shutdown(self) -> None:
         return None
 
@@ -253,6 +256,17 @@ class RgbdVisualOdometryBackend(SlamBackend):
     def set_pose(self, pose: PoseEstimate) -> None:
         self._latest = pose
 
+    def update_camera_intrinsics(self, intrinsics: dict) -> None:
+        self._camera_matrix = np.array(
+            [
+                [intrinsics["fx"], 0.0, intrinsics["cx"]],
+                [0.0, intrinsics["fy"], intrinsics["cy"]],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=np.float32,
+        )
+        self._loop_detector.update_camera_intrinsics(intrinsics)
+
     def _matched_geometry(self, keypoints, descriptors) -> tuple[np.ndarray, np.ndarray]:
         matches = self._matcher.knnMatch(self._previous_descriptors, descriptors, k=2)
         object_points, image_points = [], []
@@ -292,11 +306,12 @@ class SlamWrapper:
         self.mode = str(config.get("mode", "disabled")).lower()
         self.trajectory = Trajectory()
         pose_graph_config = config.get("pose_graph", {})
+        self.pose_graph_enabled = bool(pose_graph_config.get("enabled", True))
         loop_closure = LoopClosureDetector(pose_graph_config.get("loop_closure", {}))
         self.pose_graph = PoseGraph(
             loop_closure_detector=(
                 loop_closure
-                if bool(pose_graph_config.get("enabled", True))
+                if self.pose_graph_enabled
                 and self.mode != "rgbd_vo"
                 and bool(pose_graph_config.get("loop_closure", {}).get("proximity_enabled", True))
                 else None
@@ -321,7 +336,12 @@ class SlamWrapper:
             pose = self.backend.update(image, depth_map, timestamp)
         self.last_visual_correction = self.visual_pose_corrector.correct(pose, visual_measurement, timestamp)
         pose = self.last_visual_correction.pose
+        if self.last_visual_correction.applied:
+            # Keep the odometry state anchored after an accepted correction or relocalization.
+            self.backend.set_pose(pose)
         self.trajectory.append(pose)
+        if not self.pose_graph_enabled:
+            return pose
         loop_constraint = getattr(self.backend, "last_loop_constraint", None)
         loop_applied = self.pose_graph.append(pose, loop_constraint=loop_constraint)
         if loop_applied:
@@ -332,6 +352,10 @@ class SlamWrapper:
             pose = self.trajectory.poses[-1]
             self.backend.set_pose(pose)
         return pose
+
+    def update_camera_intrinsics(self, intrinsics: dict | None) -> None:
+        if intrinsics:
+            self.backend.update_camera_intrinsics(intrinsics)
 
     def export_trajectory(self, path: Path) -> None:
         self.trajectory.export(path)

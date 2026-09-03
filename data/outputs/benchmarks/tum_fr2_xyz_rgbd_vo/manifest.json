@@ -1,0 +1,137 @@
+{
+  "associations": {
+    "depth_frames": 3666,
+    "matched_pairs": 3665,
+    "max_timestamp_error": 0.029395103454589844,
+    "mean_timestamp_error": 0.009020775044273387,
+    "rgb_frames": 3669,
+    "unmatched_depth": 1,
+    "unmatched_rgb": 4
+  },
+  "camera": {
+    "cx": 319.5,
+    "cy": 239.5,
+    "fx": 525.0,
+    "fy": 525.0
+  },
+  "config_hash": "50c58ca7af8928c0727b1b3a8e234f5176a2302920026bce7aa866b03ddcbd5e",
+  "depth": {
+    "depth_anything_encoder": "vitl",
+    "depth_model": "midas",
+    "device": "cpu",
+    "input_size": 518,
+    "midas_variant": "MiDaS_small",
+    "output_mode": "raw",
+    "postprocess": {
+      "bilateral_diameter": 7,
+      "bilateral_filter": true,
+      "bilateral_sigma_color": 0.1,
+      "bilateral_sigma_space": 7.0,
+      "enabled": false,
+      "guided_eps": 0.001,
+      "guided_radius": 8,
+      "guided_refine": true,
+      "temporal_alpha": 0.7,
+      "temporal_fusion": false
+    },
+    "prefer_torch_hub": true,
+    "source_mode": "input",
+    "weights_dir": "models"
+  },
+  "environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.7"
+  },
+  "evaluation": {
+    "calibration_perturbation": {
+      "cx_offset_px": 0.0,
+      "cy_offset_px": 0.0,
+      "enabled": false,
+      "fx_scale": 1.0,
+      "fy_scale": 1.0
+    },
+    "pose_perturbation": {
+      "dropout_probability": 0.0,
+      "enabled": false,
+      "latency_frames": 0,
+      "rotation_std_deg": 0.0,
+      "seed": 0,
+      "translation_std_m": 0.0
+    }
+  },
+  "git_commit": "c5a6dbe34741787b3c00bb9d5824afceef173c62",
+  "input": {
+    "fps": 30,
+    "height": 480,
+    "mode": "rgbd_dataset",
+    "source": "rgbd_dataset_freiburg2_xyz",
+    "timeout_sec": 5.0,
+    "width": 640
+  },
+  "mapping": {
+    "confidence_fusion": {
+      "edge_scale": 0.15,
+      "enabled": false,
+      "min_confidence": 0.2
+    },
+    "enabled": true,
+    "export_path": "data/outputs/frame_cloud.ply",
+    "max_points": 150000,
+    "max_samples_per_frame": 2000,
+    "max_voxels": 20000,
+    "multi_view_consistency": {
+      "enabled": false,
+      "relative_error_scale": 0.1
+    },
+    "representation": "pointcloud",
+    "semantic_color_fusion": true,
+    "stride": 4,
+    "tsdf_depth_scale": 1.0,
+    "tsdf_depth_trunc": 4.0,
+    "tsdf_estimate_normals": false,
+    "tsdf_sdf_trunc": 0.08,
+    "tsdf_voxel_length": 0.04,
+    "voxel_size": 0.03
+  },
+  "slam": {
+    "frame_stride": 1,
+    "match_ratio": 0.75,
+    "max_depth_m": 8.0,
+    "max_features": 1200,
+    "min_correspondences": 20,
+    "min_inliers": 12,
+    "mode": "rgbd_vo",
+    "pose_graph": {
+      "enabled": true,
+      "loop_closure": {
+        "distance_threshold": 0.15,
+        "enabled": false,
+        "max_candidates": 3,
+        "max_reprojection_error": 2.5,
+        "min_inliers": 15,
+        "min_matches": 30,
+        "min_node_gap": 15,
+        "proximity_enabled": false
+      }
+    },
+    "pose_message_type": "pose_with_covariance",
+    "pose_topic": "/rtabmap/localization_pose",
+    "timeout_sec": 0.05
+  },
+  "visual_localization": {
+    "dictionary": "DICT_4X4_50",
+    "enabled": false,
+    "landmarks": [],
+    "marker_length_m": 0.16,
+    "max_reprojection_error": 3.0,
+    "pose_correction": {
+      "apply_to_mapping": false,
+      "blend_weight": 1.0,
+      "max_rotation_innovation_deg": 45.0,
+      "max_rotation_std_deg": 20.0,
+      "max_timestamp_delta_sec": 0.05,
+      "max_translation_innovation_m": 2.0,
+      "max_translation_std_m": 0.5
+    }
+  }
+}

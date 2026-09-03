@@ -129,7 +129,10 @@ def run() -> None:
             timestamp = frame.timestamp
             rgb = frame.image
             source_intrinsics = getattr(source, "get_camera_intrinsics", lambda: None)()
-            mapper.update_camera_intrinsics(calibration_perturber.perturb(source_intrinsics or config["camera"]))
+            active_intrinsics = source_intrinsics or config["camera"]
+            # Mapping sensitivity experiments perturb only reconstruction; pose estimation uses calibrated intrinsics.
+            mapper.update_camera_intrinsics(calibration_perturber.perturb(active_intrinsics))
+            slam.update_camera_intrinsics(active_intrinsics)
             with Timer() as depth_timer:
                 if depth_source_mode == "input":
                     if frame.depth_map is None:
@@ -149,7 +152,7 @@ def run() -> None:
             if landmark_detector is not None:
                 visual_measurement = solve_landmark_pose(
                     landmark_detector.detect(rgb),
-                    config["camera"],
+                    active_intrinsics,
                     timestamp,
                     max_reprojection_error=float(visual_config.get("max_reprojection_error", 3.0)),
                 )

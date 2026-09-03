@@ -1,0 +1,2 @@
+ate_rmse,rpe_trans_rmse,rpe_rot_deg_rmse,matched_poses,matched_pairs,estimated_json,groundtruth_tum,max_timestamp_diff
+0.02348819561302662,0.005470772646262441,0.36532397230184654,119,118,data/outputs/benchmarks/tum_fr1_xyz_rgbd_vo/trajectory.json,rgbd_dataset_freiburg1_xyz/rgbd_dataset_freiburg1_xyz/groundtruth.txt,0.02

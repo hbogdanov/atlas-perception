@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
-from src.slam.loop_closure import LoopClosureConstraint
+from src.slam.loop_closure import AppearanceLoopClosureDetector, LoopClosureConstraint
 from src.slam.odometry import PoseEstimate
 from src.slam.pose_graph import PoseGraph
 from src.slam.trajectory import _select_projection_axes
@@ -284,3 +286,56 @@ def test_landmark_measurement_relocalizes_lost_rgbd_tracker():
     assert pose.tracking_ok is True
     assert pose.matrix[0, 3] == pytest.approx(4.0)
     assert slam.last_visual_correction.reason == "relocalized"
+    persisted = slam.update(np.zeros((240, 320, 3), dtype=np.uint8), np.ones((240, 320), dtype=np.float32), 1.0)
+    assert persisted.matrix[0, 3] == pytest.approx(4.0)
+
+
+def test_rgbd_vo_accepts_live_intrinsics_updates():
+    slam = SlamWrapper({"mode": "rgbd_vo", "camera": {"fx": 250.0, "fy": 250.0, "cx": 160.0, "cy": 120.0}})
+
+    slam.update_camera_intrinsics({"fx": 300.0, "fy": 301.0, "cx": 161.0, "cy": 121.0})
+
+    assert slam.backend._camera_matrix[0, 0] == pytest.approx(300.0)
+    assert slam.backend._loop_detector._camera_matrix[1, 1] == pytest.approx(301.0)
+
+
+def test_pose_graph_disabled_does_not_collect_nodes():
+    slam = SlamWrapper({"mode": "dummy", "pose_graph": {"enabled": False}})
+
+    slam.update(None, None, 1.0)
+    slam.update(None, None, 2.0)
+
+    assert slam.pose_graph.nodes == []
+    assert slam.pose_graph.edges == []
+
+
+def test_appearance_loop_detector_verifies_rgbd_revisit_and_exports_diagnostics(tmp_path: Path):
+    rng = np.random.default_rng(17)
+    image = np.zeros((240, 320, 3), dtype=np.uint8)
+    for x, y in rng.integers((20, 20), (300, 220), size=(180, 2)):
+        cv2.circle(image, (int(x), int(y)), 2, (255, 255, 255), -1)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    keypoints, descriptors = cv2.ORB_create(nfeatures=1200).detectAndCompute(gray, None)
+    detector = AppearanceLoopClosureDetector(
+        {"enabled": True, "min_node_gap": 2, "min_matches": 8, "min_inliers": 6},
+        np.array([[250.0, 0.0, 160.0], [0.0, 250.0, 120.0], [0.0, 0.0, 1.0]], dtype=np.float32),
+    )
+    depth = np.full((240, 320), 2.0, dtype=np.float32)
+
+    assert detector.detect(keypoints, descriptors, depth, 0.0) is None
+    assert detector.detect(keypoints, descriptors, depth, 1.0) is None
+    closure = detector.detect(keypoints, descriptors, depth, 2.0)
+
+    assert closure is not None
+    assert closure.source_index == 2
+    assert closure.target_index == 0
+    assert closure.transform is not None
+    assert closure.inlier_count >= 6
+    graph = PoseGraph()
+    for timestamp in (0.0, 1.0, 2.0):
+        graph.append(PoseEstimate(np.eye(4, dtype=np.float32), timestamp), closure if timestamp == 2.0 else None)
+    output = tmp_path / "pose_graph.json"
+    graph.export_json(output)
+    exported = json.loads(output.read_text(encoding="utf-8"))["loop_closures"][0]
+    assert exported["inlier_count"] == closure.inlier_count
+    assert exported["transform"] is not None

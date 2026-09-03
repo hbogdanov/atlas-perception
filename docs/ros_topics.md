@@ -48,7 +48,7 @@ Atlas can operate with:
 - static intrinsics from `camera.fx`, `camera.fy`, `camera.cx`, `camera.cy`
 - live intrinsics from `input.camera_info_topic` when running in ROS2 or simulator mode
 
-When `CameraInfo` is present, Atlas updates intrinsics before projecting depth into point clouds.
+When `CameraInfo` is present, Atlas updates intrinsics before mapping, RGB-D VO, appearance-loop verification, and landmark PnP.
 
 ## SLAM Notes
 
@@ -56,6 +56,6 @@ When `CameraInfo` is present, Atlas updates intrinsics before projecting depth i
 - `slam.mode: dummy` produces synthetic forward motion for testing map accumulation.
 - `slam.mode: rtabmap` consumes `PoseWithCovarianceStamped` from `slam.pose_topic` by default. Set `slam.pose_message_type: pose_stamped` only for a custom source that publishes `PoseStamped`.
 - `slam.mode: rgbd_vo` runs an in-process metric RGB-D visual-odometry frontend. It is appropriate only when the incoming depth is metric and calibrated; it publishes Atlas poses using the same map-frame convention.
-- `rgbd_vo` does not yet perform loop closure, global pose optimization, or relocalization. Use RTAB-Map as the external full-SLAM source for ROS2 workflows requiring those capabilities.
+- `rgbd_vo` can perform appearance-verified RGB-D loop closure and a global translation-only graph correction. It can relocalize only from a configured known landmark measurement, not arbitrary place recognition. Rotation optimization and map reintegration after a loop are still missing; use RTAB-Map when those mature capabilities are required.
 - The Ubuntu TurtleBot3 Gazebo reference config is `configs/turtlebot3_gazebo_rtabmap.yaml`.
 - The Isaac Sim reference config is `configs/isaac_demo.yaml`.

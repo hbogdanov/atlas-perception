@@ -11,7 +11,7 @@ Atlas Perception is a modular robotics perception stack that converts monocular 
 - Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
 - Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
 - Explicit pose modes, including owned metric `rgbd_vo` visual odometry
-- Pose-graph bookkeeping for trajectory inspection; no built-in loop optimizer is claimed
+- Appearance-verified RGB-D loop constraints with a bounded global translation-graph correction
 - Point cloud generation with NumPy-native storage and Open3D `.ply` export
 - ROS2 topic publishing for depth, pose, and colored point cloud outputs
 - Config-driven simulator workflows for Isaac Sim and Gazebo
@@ -209,7 +209,7 @@ The dashboard also shows a prominent `SLAM: ...` badge so the active pose mode i
 ## Detailed Config Notes
 
 For ROS2 ingestion, `input.source` is the camera topic. There is no separate duplicate image-topic field under `ros2`.
-When available, `input.camera_info_topic` can provide live intrinsics from `sensor_msgs/CameraInfo`, overriding static `camera.fx`, `camera.fy`, `camera.cx`, and `camera.cy` during ROS2 or simulator runs.
+When available, `input.camera_info_topic` provides live calibrated intrinsics from `sensor_msgs/CameraInfo`. Atlas applies them to mapping, RGB-D VO, appearance-loop verification, and landmark PnP before each frame is processed.
 
 Depth outputs are explicit:
 
@@ -252,10 +252,11 @@ explicitly separated.
 
 Pose-graph support is also config-driven:
 
-- `slam.pose_graph.enabled: true` records pose nodes and odometry edges during runtime
-- `slam.pose_graph.loop_closure.enabled: true` records proximity candidates for inspection only; it does not verify visual appearance or optimize poses
-- `slam.pose_graph.loop_closure.min_node_gap` prevents trivial adjacent-frame closures
-- `slam.pose_graph.loop_closure.distance_threshold` controls revisit sensitivity
+- `slam.pose_graph.enabled: true` enables pose-node/edge bookkeeping; `false` leaves the trajectory untouched by graph bookkeeping
+- `slam.pose_graph.loop_closure.enabled: true` enables ORB appearance retrieval plus target-depth PnP-RANSAC verification for `rgbd_vo`
+- accepted loop constraints trigger a global translation-only least-squares correction; rotations and map reintegration are not yet optimized
+- `slam.pose_graph.loop_closure.min_node_gap` prevents trivial adjacent-frame candidates
+- `slam.pose_graph.loop_closure.min_matches`, `min_inliers`, and `max_reprojection_error` gate geometric loop acceptance
 
 Reproduce the owned RGB-D odometry baseline and compare it with TUM ground truth:
 
