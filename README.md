@@ -1,542 +1,98 @@
 # Atlas Perception
 
-Atlas Perception is a modular robotics perception stack that converts monocular RGB input into depth maps, colored point clouds, and map-oriented 3D reconstructions across webcam, video, ROS2, and simulator inputs. Optional semantic segmentation and external pose integration extend the pipeline for richer scene understanding and world-aligned mapping.
+Atlas Perception is a modular RGB-D perception stack for metric visual odometry, pose-aware 3D reconstruction, and ROS2-facing robotics workflows.
 
-## Features
+It is a research prototype, not production SLAM: the owned frontend provides sparse RGB-D visual odometry, landmark-assisted recovery, and bounded loop-constraint correction; rotation optimization, map reintegration after a loop, and uninstrumented relocalization remain open work.
 
-- Camera ingestion from webcam, video files, or ROS2 image topics
-- TUM-style RGB-D dataset ingestion for metric demo and evaluation runs
-- ROS2 image-topic ingestion through `rclpy` and `cv_bridge`
-- Real monocular depth backends for MiDaS or Depth Anything
-- Depth, trajectory estimation, and pose-aware mapping outputs for robotics workflows
-- Selectable map representations for colored point-cloud fusion or Open3D TSDF fusion
-- Explicit pose modes, including owned metric `rgbd_vo` visual odometry
-- Appearance-verified RGB-D loop constraints with a bounded global translation-graph correction
-- Point cloud generation with NumPy-native storage and Open3D `.ply` export
-- ROS2 topic publishing for depth, pose, and colored point cloud outputs
-- Config-driven simulator workflows for Isaac Sim and Gazebo
-- Composite demo video export showing RGB, depth, fused-map, and status panels
-- One-command live webcam mapping entrypoint with a real-time 2x2 perception dashboard
+## Flagship Result
 
-## Pipeline
+![Atlas RGB-D VO flagship demo](demo/gifs/atlas_rgbd_vo_flagship.gif)
 
-```text
-camera input
-   |
-   v
-depth estimation
-   |
-   +--> trajectory estimation (pose integration)
-   |
-   v
-point cloud projection + transform
-   |
-   v
-map / cloud accumulation or TSDF fusion
-   |
-   v
-ROS2 topic publishing
-```
+The demo uses real TUM RGB-D input and Atlas's owned `rgbd_vo` pose source. It shows the source RGB frame, estimated trajectory, and world-space voxel reconstruction. No ground-truth pose drives the estimate.
 
-## Example Pipeline Output
+## Quantitative Evidence
 
-Pipeline run on a TUM RGB-D office sequence with metric depth and ground-truth pose integration.
+Both runs use metric dataset depth and compare the estimated trajectory with TUM ground truth. ATE is rigidly SE(3)-aligned; RPE is computed from consecutive relative motions.
 
-RGB-D office sequence -> metric depth -> fused 3D map.
+| Sequence | Frames | Tracked poses | ATE RMSE | Translation RPE RMSE | Rotation RPE RMSE |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TUM `fr1_xyz` | 120 | 119 | 0.0235 m | 0.0055 m | 0.365 deg |
+| TUM `fr2_xyz` | 120 | 119 | 0.0115 m | 0.0027 m | 0.223 deg |
 
-Outputs:
+| `fr1_xyz` owned VO | `fr2_xyz` owned VO |
+| --- | --- |
+| ![fr1 trajectory](data/outputs/benchmarks/tum_fr1_xyz_rgbd_vo/trajectory_plot.png) | ![fr2 trajectory](data/outputs/benchmarks/tum_fr2_xyz_rgbd_vo/trajectory_plot.png) |
 
-- monocular depth maps
-- metric depth maps for RGB-D dataset runs
-- fused point cloud maps
-- composite dashboard views with runtime status
+The checked-in result bundles include resolved configs, manifests, runtime metrics, trajectories, plots, and evaluation summaries. They do not include the raw datasets or reconstructed clouds.
 
-`RGB frame -> depth map -> fused map -> status panel`
+## Architecture
 
-RGB input:
+![Atlas RGB-D VO architecture](docs/assets/atlas_rgbd_vo_architecture.svg)
 
-![TUM RGB frame](demo/screenshots/tum_rgb_frame.png)
+Core capabilities:
 
-Estimated depth:
-
-![TUM depth map](demo/screenshots/tum_depth_map.png)
-
-Projected point cloud:
-
-![TUM point cloud](demo/screenshots/pointcloud_vis.png)
+- Metric RGB-D visual odometry: ORB feature tracks, previous-frame depth back-projection, and PnP-RANSAC pose estimation.
+- Landmark localization: calibrated ArUco corner observations, PnP, reprojection gating, covariance estimates, and persistent RGB-D VO-state correction.
+- Bounded loop handling: ORB appearance candidates, target-depth PnP verification, exported constraint diagnostics, and translation-only graph correction.
+- Global reconstruction: persistent world-space voxel fusion, optional confidence and multi-view consistency hooks, colored PLY export, and optional TSDF integration.
+- ROS2 interfaces: RGB/CameraInfo ingestion plus depth, pose, path, point-cloud, and visual-pose publications with explicit camera/map frame semantics.
 
 ## Quickstart
 
 ```bash
 python -m venv .venv
-# Windows
 .venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .[dev]
-pip install -e .[semantics]
-python run_webcam_mapping.py
 ```
 
-Then use the advanced entrypoints as needed:
+Run the unit suite:
 
 ```bash
-python -m src.main --config configs/default.yaml
-python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
-python tools/run_demo.py --dataset tum
-```
-
-The first run of a Torch Hub backend may download model assets. For more reproducible setups, pin `torch` and backend dependencies in your environment and set `depth.local_weights_path` to a local checkpoint when available.
-The base `configs/default.yaml` quickstart keeps ROS2 publishing disabled; simulator and ROS-specific override configs enable it explicitly.
-The main pipeline can also save a demo-ready artifact set directly via `output.save_rgb_snapshot`, `output.save_depth_snapshot`, and `output.save_pointcloud`.
-If you want YOLOv8 segmentation, install the optional semantics extra with `pip install -e .[semantics]`.
-For simulator-backed showcase runs, `output.save_demo_video` writes a composite `.mp4` with RGB, depth, fused-map, and status panels.
-For the fastest local live showcase path, `python run_webcam_mapping.py` opens a real-time dashboard with RGB, depth, fused-map, and status panels, and `--show-cloud` adds a live Open3D point-cloud window.
-For the strongest metric showcase path, `python tools/run_demo.py --dataset tum` runs the TUM RGB-D preset with ground-truth depth plus ground-truth pose integration and exports the current metric demo assets.
-The webcam path is still monocular and relative-depth by default; the TUM RGB-D demo is the metric reconstruction path.
-In `slam.mode: dummy`, Atlas uses a synthetic pose path for visualization and map accumulation. This mode does not estimate real camera motion from monocular webcam input.
-For Isaac Sim, `python tools/run_isaac_demo.py` attaches Atlas directly to the bridged ROS2 RGB and `CameraInfo` topics.
-
-## Example Results
-
-The main README showcases two final TUM RGB-D demo sequences.
-
-### Freiburg1 Desk
-
-Short close-range tabletop scene.
-
-Best clean showcase for depth quality and local fusion.
-
-![Freiburg1 Desk demo](demo/gifs/freiburg1_desk_demo.gif)
-
-### Freiburg3 Long Office Household
-
-Larger indoor scene.
-
-Best broad mapping showcase.
-
-![Freiburg3 Long Office Household demo](demo/gifs/freiburg3_long_office_household_demo.gif)
-
-## Mode Summary
-
-| Mode | Input | Pose Source | Output |
-| --- | --- | --- | --- |
-| `disabled` | webcam / video | fixed identity | depth and local cloud |
-| `dummy` | webcam / video / sim | synthetic path | demo mapping and visualization-only accumulation |
-| `rtabmap` | ROS2 / sim | external SLAM pose | world-aligned mapping and trajectory |
-| `groundtruth` | RGB-D dataset | dataset ground truth | metric mapping and trajectory export |
-| `rgbd_vo` | metric RGB-D | owned ORB + depth + PnP-RANSAC odometry | estimated metric trajectory and global map |
-
-## Configs
-
-Primary runtime settings live in `configs/default.yaml`. You can layer an additional YAML file on top with `--override-config`, and nested dictionaries are merged recursively.
-
-The configs are intentionally split by purpose:
-
-- `configs/default.yaml`: safe baseline with ROS2 off and SLAM disabled
-- `configs/tum_demo.yaml`: TUM RGB-D metric showcase run with ground-truth depth, ground-truth pose, and GIF/video export
-- `configs/webcam_mapping.yaml`: live webcam mapping preset for local demos
-- `configs/tum_main_eval.yaml`: reproducible TUM artifact evaluation run
-- `configs/gazebo_demo.yaml`: Gazebo demo with dummy motion for world-frame accumulation testing
-- `configs/gazebo_rtabmap_demo.yaml`: Gazebo demo that consumes external RTAB-Map poses
-- `configs/turtlebot3_gazebo_rtabmap.yaml`: TurtleBot3 Gazebo run that consumes camera topics and external RTAB-Map poses
-- `configs/isaac_demo.yaml`: Isaac Sim demo with dummy motion and ROS2 publishing
-
-## Docs
-
-- [docs/index.md](docs/index.md)
-- [docs/pipeline.md](docs/pipeline.md)
-- [docs/architecture.md](docs/architecture.md)
-- [docs/ros_topics.md](docs/ros_topics.md)
-- [docs/sample_run.md](docs/sample_run.md)
-- [docs/experiments.md](docs/experiments.md)
-- [docs/isaac_sim_setup.md](docs/isaac_sim_setup.md)
-- [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md)
-- [data/README.md](data/README.md)
-
-## Optional Semantics / SLAM Integration
-
-Semantic perception is optional:
-
-- `semantics.enabled: true` turns on per-frame semantic segmentation
-- `semantics.backend: yolov8_seg` uses YOLOv8 instance segmentation through `ultralytics`
-- `mapping.semantic_color_fusion: true` colors the fused map by semantic class instead of raw RGB
-- `output.save_semantic_snapshot: true` writes a class-colored overlay image for the first saved frame
-
-Trajectory and SLAM integration stay in the repo for:
-
-- `slam.mode: rtabmap` runs with external tracked poses
-- `slam.mode: groundtruth` uses dataset ground-truth pose for metric RGB-D demos
-- artifact export and quantitative `ATE` / `RPE` evaluation
-- pose-graph bookkeeping and loop-closure structure
-- future real pose sources beyond the current demo modes
-
-Trajectory example:
-
-![Trajectory plot](demo/screenshots/tum_trajectory_plot.png)
-
-## Additional Demos
-
-Additional comparison and legacy showcase assets can be regenerated later and kept under `demo/extra/`.
-
-## Live Webcam Mapping
-
-Run:
-
-```bash
-python run_webcam_mapping.py
-```
-
-This starts a live webcam pipeline with:
-
-- RGB feed
-- monocular depth estimation
-- semantic overlay when semantics are enabled
-- fused point-cloud map view
-
-Useful flags:
-
-- `--show-cloud` opens a live Open3D point-cloud window
-- `--save-artifacts` writes `frame_cloud.ply` and trajectory exports on exit
-- `--representation tsdf` switches the live mapper to TSDF fusion
-- `--slam-mode dummy` enables visualization-only synthetic pose updates for accumulated-map demos
-- `--slam-mode rtabmap` uses externally tracked RTAB-Map poses when a ROS2 pose source is available
-
-Press `q` or `Esc` to quit.
-The dashboard also shows a prominent `SLAM: ...` badge so the active pose mode is explicit during live runs.
-
-## Detailed Config Notes
-
-For ROS2 ingestion, `input.source` is the camera topic. There is no separate duplicate image-topic field under `ros2`.
-When available, `input.camera_info_topic` provides live calibrated intrinsics from `sensor_msgs/CameraInfo`. Atlas applies them to mapping, RGB-D VO, appearance-loop verification, and landmark PnP before each frame is processed.
-
-Depth outputs are explicit:
-
-- `depth.output_mode: relative_normalized` returns a per-frame normalized relative depth map in `[0, 1]`
-- `depth.output_mode: raw` returns the backend's raw depth output without pretending it is metric depth
-- `depth.source_mode: estimate` runs the configured monocular backend
-- `depth.source_mode: input` consumes depth supplied by the active frame source, such as TUM RGB-D dataset frames
-- `depth.depth_model: midas` selects the registered depth backend plugin to run
-- `depth.postprocess.enabled: true` turns on post-inference cleanup for smoother but still edge-aware depth
-- `depth.postprocess.bilateral_filter: true` applies spatial smoothing to reduce speckle without flattening the full scene
-- `depth.postprocess.guided_refine: true` runs an RGB-guided filter so object boundaries track image edges better
-- `depth.postprocess.temporal_fusion: true` blends consecutive depth frames to reduce flicker in video or ROS streams
-
-Depth backends are registry-driven rather than hardcoded. The built-in plugins are currently `midas` and `depth_anything`, and new backends can be added by registering another depth backend class in [src/depth/models.py](src/depth/models.py).
-
-Semantic perception is optional:
-
-- `semantics.enabled: true` turns on per-frame semantic segmentation
-- `semantics.backend: yolov8_seg` uses YOLOv8 instance segmentation through `ultralytics`
-- `mapping.semantic_color_fusion: true` colors the fused map by semantic class instead of raw RGB
-- `output.save_semantic_snapshot: true` writes a class-colored overlay image for the first saved frame
-
-SLAM modes are explicit:
-
-- `slam.mode: disabled` keeps pose fixed at identity
-- `slam.mode: dummy` generates a synthetic visualization path for pipeline testing and demo accumulation
-- `slam.mode: rtabmap` consumes external RTAB-Map pose output from ROS2 and uses it for world-frame cloud alignment
-- `slam.mode: groundtruth` consumes pose matrices supplied by the active dataset source
-- `slam.mode: rgbd_vo` estimates metric frame-to-frame motion from ORB tracks, previous-frame metric depth, and PnP-RANSAC; it does not accept relative monocular depth as metric geometry
-
-For a reproducible reconstruction study after benchmark runs, use:
-
-```bash
-python tools/compile_flagship_study.py
-```
-
-It writes a technical report, machine-readable results table, and a map-quality/runtime figure under
-`data/outputs/flagship_study`. The report keeps dataset ground truth, external poses, and estimated visual poses
-explicitly separated.
-
-Pose-graph support is also config-driven:
-
-- `slam.pose_graph.enabled: true` enables pose-node/edge bookkeeping; `false` leaves the trajectory untouched by graph bookkeeping
-- `slam.pose_graph.loop_closure.enabled: true` enables ORB appearance retrieval plus target-depth PnP-RANSAC verification for `rgbd_vo`
-- accepted loop constraints trigger a global translation-only least-squares correction; rotations and map reintegration are not yet optimized
-- `slam.pose_graph.loop_closure.min_node_gap` prevents trivial adjacent-frame candidates
-- `slam.pose_graph.loop_closure.min_matches`, `min_inliers`, and `max_reprojection_error` gate geometric loop acceptance
-
-Reproduce the owned RGB-D odometry baseline and compare it with TUM ground truth:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_rgbd_vo.yaml --max-frames 60
-python tools/evaluate_trajectory.py --estimated-json data/outputs/benchmarks/tum_rgbd_vo/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
-```
-
-For an RGB-D sequence with revisits, enable `slam.pose_graph.loop_closure.enabled`. Atlas ranks ORB appearance candidates, verifies them using target-frame metric depth plus PnP-RANSAC, and runs a global translation pose-graph correction. A valid configured landmark measurement also relocalizes a lost `rgbd_vo` track. Rotation-graph optimization, map reintegration after a correction, and uninstrumented relocalization remain future work, so this is not yet a full production-SLAM claim.
-
-Mapping representations are explicit:
-
-- `mapping.representation: pointcloud` keeps the existing fast colored point-cloud fusion path
-- `mapping.representation: tsdf` runs dense volumetric fusion through Open3D `ScalableTSDFVolume`
-- `mapping.tsdf_voxel_length`, `mapping.tsdf_sdf_trunc`, and `mapping.tsdf_depth_trunc` tune TSDF resolution and truncation
-
-Demo-map rendering is also configurable:
-
-- `output.demo_map_projection: xy | xz | auto` controls the projected map plane in composite videos
-- `output.demo_map_bounds: [xmin, xmax, ymin, ymax]` fixes the rendered map bounds so demos are comparable across runs
-
-Config validation runs before startup and fails early on invalid camera intrinsics, unsupported modes, or missing required sections.
-
-Example:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/isaac_demo.yaml
-```
-
-RTAB-Map example:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/gazebo_rtabmap_demo.yaml
-```
-
-Isaac Sim example:
-
-```bash
-python tools/run_isaac_demo.py --slam-mode dummy
-ros2 launch launch/isaac_atlas.launch.py
-```
-
-## Simulator Runs
-
-Use the simulator-specific configs directly:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/isaac_demo.yaml
-python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml
-```
-
-If ROS2 `launch` is available, the launch files also wrap those flows:
-
-```bash
-ros2 launch launch/atlas_perception.launch.py
-ros2 launch launch/isaac_atlas.launch.py
-ros2 launch launch/sim_demo.launch.py sim_config:=configs/gazebo_demo.yaml
-```
-
-Expected simulator showcase outputs:
-
-- `demo/videos/gazebo_demo.mp4`
-- `demo/videos/gazebo_rtabmap_demo.mp4`
-- `demo/videos/turtlebot3_gazebo_rtabmap.mp4`
-- `demo/videos/isaac_demo.mp4`
-
-## Ubuntu Gazebo Workflow
-
-For a real ROS2 + Gazebo setup, use Ubuntu 22.04 with ROS2 Humble and TurtleBot3. The exact install and run steps are in [docs/ubuntu_gazebo_setup.md](docs/ubuntu_gazebo_setup.md).
-
-Canonical simulator run:
-
-```bash
-ros2 launch turtlebot3_gazebo turtlebot3_world.launch.py
-python -m src.main --config configs/default.yaml --override-config configs/turtlebot3_gazebo_rtabmap.yaml --max-frames 300
-```
-
-Before running Atlas, verify the simulator is actually publishing:
-
-- `/camera/image_raw`
-- `/camera/camera_info`
-
-If the camera topic names differ, update `input.source` and `input.camera_info_topic` in `configs/turtlebot3_gazebo_rtabmap.yaml`.
-
-## World-Frame Mapping
-
-Atlas now treats pose as a mapping input rather than a side output:
-
-1. ingest RGB frame
-2. estimate dense depth
-3. get `T_world_camera` from the configured SLAM backend
-4. back-project depth into camera-frame 3D points
-5. transform points into the world frame with `T_world_camera`
-6. accumulate the transformed cloud into the global map
-   or fuse it into a TSDF volume
-7. publish depth, pose, path, and colored point cloud topics
-
-## Sample Run Artifacts
-
-Documented outputs for a full run are described in `docs/sample_run.md`. A successful run should produce:
-
-- an RGB input frame capture
-- a depth visualization image
-- `data/outputs/frame_cloud.ply`
-- a screenshot from the point cloud viewer
-
-Current generated demo artifacts:
-
-- [tum_rgb_frame.png](demo/screenshots/tum_rgb_frame.png)
-- [tum_depth_map.png](demo/screenshots/tum_depth_map.png)
-- [tum_trajectory_plot.png](demo/screenshots/tum_trajectory_plot.png)
-- [pointcloud_vis.png](demo/screenshots/pointcloud_vis.png)
-- [frame_cloud.ply](data/outputs/tum_demo/frame_cloud.ply)
-
-Dataset note:
-
-- a small TUM RGB-D sample is included in [data/samples/tum_freiburg1_xyz](data/samples/tum_freiburg1_xyz)
-- larger datasets are not bundled in the repository due to size
-- the tracked demo artifacts were generated from the TUM RGB-D dataset
-
-Recommended first dataset: TUM RGB-D `fr1/xyz`. The official TUM page recommends the `xyz` series for first experiments, and `fr1/xyz` is the smallest of the suggested starter sequences at about `0.47GB`. Sources: [download page](https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download), [dataset overview](https://cvg.cit.tum.de/data/datasets/rgbd-dataset).
-
-One-frame artifact flow:
-
-```bash
-python tools/run_tum_artifact.py --rgb data/samples/tum_freiburg1_xyz/rgb/1305031102.175304.png --out-dir data/outputs/tum_demo
-```
-
-Main-entrypoint artifact flow:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/gazebo_demo.yaml --max-frames 30
-```
-
-Full functionality evaluation on the TUM-derived 30-frame video clip used:
-
-```bash
-python -m src.main --config configs/default.yaml --override-config configs/tum_main_eval.yaml --max-frames 30
-```
-
-Quantitative depth evaluation on a TUM RGB-D sequence:
-
-```bash
-python tools/evaluate_depth.py --dataset-root data/samples/tum_freiburg1_xyz --limit 30
-```
-
-The evaluator writes both JSON and CSV summaries with:
-
-- `AbsRel`
-- `RMSE`
-- `delta1`
-- `FPS`
-
-Example results table format:
-
-| Model | AbsRel | RMSE | FPS |
-| --- | ---: | ---: | ---: |
-| MiDaS | 0.17 | 0.52 | 22 |
-| Depth Anything | 0.13 | 0.41 | 18 |
-
-Quantitative trajectory evaluation against TUM ground truth:
-
-```bash
-python tools/evaluate_trajectory.py --estimated-json data/outputs/tum_main_eval/trajectory.json --groundtruth-tum data/samples/tum_freiburg1_xyz/groundtruth.txt
-```
-
-The trajectory evaluator reports:
-
-- `ATE` RMSE
-- `RPE` translational RMSE
-- `RPE` rotational RMSE in degrees
-
-## Runtime Metrics
-
-Measured from one real 30-frame TUM `fr1/xyz` video-derived run through `src.main`:
-
-- average depth inference: `80.79 ms`
-- average mapping / projection: `3.18 ms`
-- average throughput: `11.45 FPS`
-- accumulated point count: `100000`
-
-For monocular backends, Atlas aligns each predicted depth map to the ground-truth median scale before computing metric-depth scores. That keeps `AbsRel`, `RMSE`, and `delta1` meaningful for relative-depth models without claiming native metric calibration. For `depth.source_mode: input` RGB-D runs, the mapper consumes metric depth directly without per-frame normalization.
-
-## Expected Outputs
-
-When snapshot and export flags are enabled, the main pipeline writes:
-
-- `rgb_frame.png`
-- `depth_map.png`
-- `semantic_overlay.png`
-- `frame_cloud.ply`
-- `semantic_cloud.ply`
-- `trajectory.npy`
-- `trajectory.json`
-- `trajectory.csv`
-- `trajectory_plot.png`
-- `pose_graph.json`
-- `pose_graph_edges.csv`
-- `atlas_demo.mp4`
-
-When `mapping.representation: tsdf` is enabled, the pipeline also writes:
-
-- `tsdf_mesh.ply`
-
-The quantitative evaluator writes:
-
-- `tum_depth_eval.json`
-- `tum_depth_eval.csv`
-- `trajectory_eval.json`
-- `trajectory_eval.csv`
-
-Example artifact directory:
-
-- `data/outputs/tum_main_eval/rgb_frame.png`
-- `data/outputs/tum_main_eval/depth_map.png`
-- `data/outputs/tum_main_eval/frame_cloud.ply`
-- `data/outputs/tum_main_eval/trajectory.npy`
-- `data/outputs/tum_main_eval/trajectory.json`
-- `data/outputs/tum_main_eval/trajectory.csv`
-- `data/outputs/tum_main_eval/trajectory_plot.png`
-- `data/outputs/tum_main_eval/pose_graph.json`
-- `data/outputs/tum_main_eval/pose_graph_edges.csv`
-- `data/outputs/tum_main_eval/atlas_eval_demo.mp4`
-- `data/outputs/depth_eval/tum_depth_eval.json`
-- `data/outputs/depth_eval/tum_depth_eval.csv`
-- `data/outputs/trajectory_eval/trajectory_eval.json`
-- `data/outputs/trajectory_eval/trajectory_eval.csv`
-
-## Known Limitations
-
-- Monocular depth is relative by default unless a calibrated backend/scaling path is added.
-- Metric reconstruction in the repo currently comes from RGB-D dataset input or another external depth source, not from monocular webcam inference alone.
-- YOLOv8 semantics require the optional `ultralytics` dependency and suitable model weights.
-- `slam.mode: rtabmap` expects an external RTAB-Map ROS2 node to already be running and publishing poses.
-- Simulator bridges are lightweight runtime/launch adapters, not deep simulator-specific integrations.
-- A real simulator-backed demo video still requires a local Gazebo or Isaac Sim runtime; this repo can render the showcase asset once those feeds are available.
-
-## ROS2 Topics
-
-Default topics:
-
-- `/camera/image_raw`
-- `/atlas/depth`
-- `/atlas/pose`
-- `/atlas/path`
-- `/atlas/pointcloud`
-
-See `docs/ros_topics.md` for the topic contract.
-
-## Development
-
-Install test tooling with:
-
-```bash
-pip install -e .[dev]
 python -m pytest
-python -m black --check .
-python -m ruff check .
+black --check src tests tools
+ruff check .
 ```
 
-The repository includes a checked-in `pytest.ini` that keeps pytest temp artifacts in repo-local test paths and disables the flaky Windows tmpdir/cache plugins used by this environment. The standard `python -m pytest` command is the expected local test entrypoint.
-GitHub Actions runs the same baseline quality gate on pushes and pull requests to `main`: `pytest`, `black --check`, and `ruff check`.
+## Reproduce the VO Baselines
 
-## Tested On
+Download the matching TUM RGB-D sequence and place it at the path used by the relevant config. The source can be either the sequence directory itself or its standard nested archive directory.
 
-- Python `3.12`
-- Windows for live webcam mapping
-- Ubuntu `22.04` for ROS2 / Gazebo workflows
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_fr1_xyz_rgbd_vo.yaml --max-frames 120
+python tools/evaluate_trajectory.py --estimated-json data/outputs/benchmarks/tum_fr1_xyz_rgbd_vo/trajectory.json --groundtruth-tum rgbd_dataset_freiburg1_xyz/rgbd_dataset_freiburg1_xyz/groundtruth.txt
+```
 
-## Project Layout
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_fr2_xyz_rgbd_vo.yaml --max-frames 120
+python tools/evaluate_trajectory.py --estimated-json data/outputs/benchmarks/tum_fr2_xyz_rgbd_vo/trajectory.json --groundtruth-tum rgbd_dataset_freiburg2_xyz/rgbd_dataset_freiburg2_xyz/groundtruth.txt
+```
 
-- `src/io`: camera and stream adapters
-- `src/depth`: depth inference and visualization
-- `src/slam`: trajectory, pose graph, loop closure, and odometry interfaces
-- `src/mapping`: point cloud projection, TSDF fusion, and occupancy utilities
-- `src/ros2`: ROS2 nodes, publishers, subscribers, and transforms
-- `src/sim`: Isaac Sim and Gazebo bridges plus launch-time topic adaptation
-- `docs`: architecture and ROS interface documentation
-- `launch`: ROS2 launch entrypoints
+Generate the flagship artifact from the first sequence:
 
-## Status
+```bash
+python -m src.main --config configs/default.yaml --override-config configs/benchmarks/tum_fr1_xyz_vo_flagship.yaml --max-frames 60
+python tools/export_demo_gif.py --video demo/videos/atlas_rgbd_vo_flagship.mp4 --gif demo/gifs/atlas_rgbd_vo_flagship.gif --fps 8 --max-frames 60 --width 1200
+```
 
-The repository now includes real camera ingestion, monocular depth estimation, world-aligned point cloud or TSDF mapping, trajectory publishing, pose-graph bookkeeping with simple loop-closure constraints, and simulator-aware runtime/launch configuration. RTAB-Map is supported as an external ROS2 pose source for world-frame mapping.
+## Evaluation and Limits
+
+- `rgbd_vo` requires metric input depth; it rejects relative monocular depth configurations.
+- The published VO results cover only the first 120 frames of two TUM `xyz` sequences. They are not long-horizon, dynamic-scene, or real-hardware validation.
+- Appearance loop closure has direct synthetic regression coverage but no published real-revisit result yet.
+- Current graph correction optimizes translations only. Existing voxel points are not reintegrated after a loop correction.
+- Landmark recovery requires a configured, known fiducial map. It is not generic place-recognition relocalization.
+- CPU voxel fusion is not real-time in the published 120-frame runs; mapping dominates end-to-end runtime.
+- ROS2 message/frame contracts are covered by code and unit tests, but a live ROS2/RTAB-Map/hardware integration study remains future validation.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Experiments and provenance](docs/experiments.md)
+- [ROS2 topics and frame semantics](docs/ros_topics.md)
+- [Visual landmark localization](docs/visual_localization.md)
+- [Pipeline details](docs/pipeline.md)
+
+## Citation and Data
+
+Atlas does not redistribute TUM RGB-D data. Cite the original TUM dataset publication when using those sequences.

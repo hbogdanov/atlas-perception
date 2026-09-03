@@ -16,7 +16,7 @@ Use these docs in this order:
 The repository config split is:
 
 - `configs/default.yaml`: safe baseline, ROS2 off, SLAM disabled
-- `configs/tum_demo.yaml`: TUM RGB-D metric showcase run with ground-truth depth and ground-truth pose
+- `configs/benchmarks/tum_fr1_xyz_vo_flagship.yaml`: owned RGB-D VO flagship artifact run
 - `configs/webcam_mapping.yaml`: live webcam mapping preset for laptop-camera demos
 - `configs/tum_main_eval.yaml`: reproducible TUM evaluation and artifact export
 - `configs/gazebo_demo.yaml`: Gazebo ROS2 demo with dummy trajectory
@@ -41,8 +41,8 @@ Depending on config flags, Atlas can write:
 - `pose_graph.json`
 - `pose_graph_edges.csv`
 - `atlas_demo.mp4`
-- `tum_demo.mp4`
-- `tum_demo.gif`
+- `atlas_rgbd_vo_flagship.mp4`
+- `atlas_rgbd_vo_flagship.gif`
 - `tum_depth_eval.json`
 - `tum_depth_eval.csv`
 - `trajectory_eval.json`
@@ -67,7 +67,7 @@ Atlas currently documents and supports:
 - external RTAB-Map pose consumption through `slam.mode: rtabmap`
 - calibrated ArUco landmark observations with RANSAC PnP visual-pose measurements
 - dataset-provided pose consumption through `slam.mode: groundtruth`
-- pose-graph export with simple loop-closure constraints
+- owned RGB-D VO with appearance-verified loop constraints and translation-only graph correction
 - composite demo video generation from the main pipeline
 - one-command live webcam mapping through `python run_webcam_mapping.py`
 - dedicated Isaac Sim runner through `python tools/run_isaac_demo.py`
@@ -75,5 +75,5 @@ Atlas currently documents and supports:
 Atlas does not yet claim:
 
 - calibrated metric monocular reconstruction by default
-- a fully optimized built-in SLAM backend beyond dummy motion, pose-graph bookkeeping, external RTAB-Map pose consumption, and dataset ground-truth pose playback
+- full SE(3) graph optimization, map reintegration after a loop correction, or uninstrumented relocalization
 - deep simulator-specific integrations beyond topic and launch adaptation

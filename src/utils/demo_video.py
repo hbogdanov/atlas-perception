@@ -63,6 +63,10 @@ class DemoVideoRecorder:
         semantic_image: np.ndarray | None = None,
         map_image: np.ndarray | None = None,
     ) -> np.ndarray:
+        if runtime.get("layout") == "vo_flagship":
+            return DemoVideoRecorder._compose_vo_flagship(
+                rgb, trajectory, pose, metrics, runtime, map_image, frame_size
+            )
         width, height = frame_size
         cell_w = width // 2
         cell_h = height // 2
@@ -97,6 +101,58 @@ class DemoVideoRecorder:
         positions = [(0, 0), (cell_w, 0), (0, cell_h), (cell_w, cell_h)]
         for tile, (x, y) in zip(tiles, positions, strict=False):
             canvas[y : y + cell_h, x : x + cell_w] = tile
+        return canvas
+
+    @staticmethod
+    def _compose_vo_flagship(
+        rgb: np.ndarray,
+        trajectory: Trajectory,
+        pose: PoseEstimate,
+        metrics: dict[str, float | int],
+        runtime: dict[str, str],
+        map_image: np.ndarray | None,
+        frame_size: tuple[int, int],
+    ) -> np.ndarray:
+        """Compose a focused three-panel artifact for the owned RGB-D VO path."""
+        width, height = frame_size
+        header_h = 62
+        panel_w = width // 3
+        panel_h = height - header_h
+        canvas = np.full((height, width, 3), 247, dtype=np.uint8)
+        cv2.rectangle(canvas, (0, 0), (width, header_h), (23, 43, 56), -1)
+        cv2.putText(
+            canvas,
+            "Atlas Perception | RGB-D Visual Odometry + Global Voxel Fusion",
+            (24, 38),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (240, 246, 248),
+            2,
+        )
+        status = "TRACKING" if pose.tracking_ok else "INITIALIZING / LOST"
+        cv2.putText(
+            canvas,
+            f"Pose source: Atlas RGB-D VO | {status}",
+            (width - 500, 38),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.56,
+            (159, 222, 190),
+            1,
+        )
+        trajectory_image = trajectory.render_plot(size=max(320, min(panel_w, panel_h)))
+        reconstruction = (
+            map_image
+            if map_image is not None
+            else DemoVideoRecorder._build_map_panel(panel_w, panel_h, pose, metrics, runtime)
+        )
+        tiles = [
+            DemoVideoRecorder._fit_tile(rgb, panel_w, panel_h, "TUM RGB-D input"),
+            DemoVideoRecorder._fit_tile(trajectory_image, panel_w, panel_h, "Estimated trajectory"),
+            DemoVideoRecorder._fit_tile(reconstruction, panel_w, panel_h, "World-space voxel reconstruction"),
+        ]
+        for index, tile in enumerate(tiles):
+            x = index * panel_w
+            canvas[header_h : header_h + panel_h, x : x + panel_w] = tile
         return canvas
 
     @staticmethod

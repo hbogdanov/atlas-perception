@@ -9,12 +9,12 @@ from tools.run_demo import build_demo_command
 from tools.run_webcam_mapping import _badge_style_for_mode, _draw_mode_badge, build_runtime_config
 
 
-def test_build_demo_command_for_tum_uses_expected_configs():
-    command = build_demo_command("tum")
+def test_build_demo_command_for_rgbd_vo_uses_expected_configs():
+    command = build_demo_command("rgbd_vo")
     assert command[1:4] == ["-m", "src.main", "--config"]
     assert "configs/default.yaml" in command
-    assert "configs/tum_demo.yaml" in command
-    assert command[-1] == "240"
+    assert "configs/benchmarks/tum_fr1_xyz_vo_flagship.yaml" in command
+    assert command[-1] == "60"
 
 
 def test_export_demo_gif_creates_output(tmp_path: Path):

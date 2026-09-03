@@ -202,12 +202,17 @@ def run() -> None:
                     "points": point_cloud.points.shape[0],
                     "frames": processed + 1,
                 }
+                flagship_layout = str(config["output"].get("demo_layout", "standard")) == "vo_flagship"
                 demo_video.write(
-                    rgb=DemoVideoRecorder.overlay_perception_diagnostics(
-                        rgb,
-                        confidence_map,
-                        visual_measurement,
-                        slam.last_visual_correction,
+                    rgb=(
+                        rgb
+                        if flagship_layout
+                        else DemoVideoRecorder.overlay_perception_diagnostics(
+                            rgb,
+                            confidence_map,
+                            visual_measurement,
+                            slam.last_visual_correction,
+                        )
                     ),
                     depth_map=display_depth,
                     trajectory=slam.trajectory,
@@ -216,6 +221,7 @@ def run() -> None:
                     runtime={
                         "input_mode": str(config["input"]["mode"]),
                         "slam_mode": str(config["slam"]["mode"]),
+                        "layout": str(config["output"].get("demo_layout", "standard")),
                         "frame_id": str(config["ros2"].get("frame_id", "atlas_camera")),
                         "depth_topic": str(config["ros2"].get("depth_topic", "/atlas/depth")),
                         "pose_topic": str(config["ros2"].get("pose_topic", "/atlas/pose")),

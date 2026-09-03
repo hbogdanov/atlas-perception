@@ -1,0 +1,38 @@
+input:
+  mode: rgbd_dataset
+  source: rgbd_dataset_freiburg1_xyz
+
+depth:
+  source_mode: input
+  output_mode: raw
+  postprocess:
+    enabled: false
+
+slam:
+  mode: rgbd_vo
+  pose_graph:
+    enabled: true
+    loop_closure:
+      enabled: false
+
+mapping:
+  stride: 4
+  max_voxels: 20000
+  max_samples_per_frame: 2000
+
+semantics:
+  enabled: false
+
+ros2:
+  enabled: false
+
+output:
+  output_dir: data/outputs/flagship_vo_demo
+  save_demo_video: true
+  save_pointcloud: false
+  save_trajectory: true
+  demo_video_path: demo/videos/atlas_rgbd_vo_flagship.mp4
+  demo_video_fps: 8
+  demo_video_width: 1440
+  demo_video_height: 560
+  demo_layout: vo_flagship
